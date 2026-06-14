@@ -1,4 +1,7 @@
-// TODO: Phase 2 — LoginForm
+import LoginForm from '@/components/auth/LoginForm'
+
+export const metadata = { title: 'Connexion — Connecteo Stock' }
+
 export default function LoginPage() {
-  return <div>Login — TODO</div>
+  return <LoginForm />
 }
