@@ -62,20 +62,27 @@ export const useDataStore = create((set, get) => ({
     return { data, error }
   },
 
-  loadParams: async (supabase) => {
-    set({ loadingParams: true })
-    const { data, error } = await supabase
-      .from('parametres')
-      .select('*')
-      .order('cle')
-    if (!error && data) {
-      const obj = {}
-      data.forEach((p) => { obj[p.cle] = p.valeur })
-      set({ params: obj, paramsRaw: data })
-    }
-    set({ loadingParams: false })
-    return { data, error }
-  },
+loadParams: async (supabase) => {
+  set({ loadingParams: true })
+  const { data, error } = await supabase
+    .from('parametres')
+    .select('*')
+    .order('valeur')
+
+  if (!error && data) {
+    set({
+      params: {
+        destinations:  data.filter(r => r.cle === 'destinations').map(r => r.valeur),
+        categoriesIT:  data.filter(r => r.cle === 'categoriesIT').map(r => r.valeur),
+        categoriesFin: data.filter(r => r.cle === 'categoriesFin').map(r => r.valeur),
+        emplacements:  data.filter(r => r.cle === 'emplacements').map(r => r.valeur),
+      },
+      paramsRaw: data,
+    })
+  }
+  set({ loadingParams: false })
+  return { data, error }
+},
 
   // ══════════════════════════════════════════════════════════
   //  PRODUITS — MUTATIONS
@@ -139,38 +146,35 @@ export const useDataStore = create((set, get) => ({
   //  PARAMETRES — MUTATIONS
   // ══════════════════════════════════════════════════════════
 
-  setParam: async (supabase, cle, valeur) => {
-    const { error } = await supabase
-      .from('parametres')
-      .upsert({ cle, valeur }, { onConflict: 'cle' })
+  // setParam: async (supabase, cle, valeur) => {
+  //   const { error } = await supabase
+  //     .from('parametres')
+  //     .upsert({ cle, valeur }, { onConflict: 'cle' })
 
-    if (!error) {
-      set((s) => ({
-        params:    { ...s.params, [cle]: valeur },
-        paramsRaw: s.paramsRaw.some((p) => p.cle === cle)
-          ? s.paramsRaw.map((p) => (p.cle === cle ? { ...p, valeur } : p))
-          : [...s.paramsRaw, { id: genId(), cle, valeur }],
-      }))
-    }
+  //   if (!error) {
+  //     set((s) => ({
+  //       params:    { ...s.params, [cle]: valeur },
+  //       paramsRaw: s.paramsRaw.some((p) => p.cle === cle)
+  //         ? s.paramsRaw.map((p) => (p.cle === cle ? { ...p, valeur } : p))
+  //         : [...s.paramsRaw, { id: genId(), cle, valeur }],
+  //     }))
+  //   }
+  //   return { error }
+  // },
+  
+  addParam: async (supabase, cle, valeur) => {
+    const { error } = await supabase.from('parametres').insert({ cle, valeur })
+    if (!error) await get().loadParams(supabase)
     return { error }
   },
 
-  removeParam: async (supabase, cle) => {
+  removeParam: async (supabase, cle, valeur) => {
     const { error } = await supabase
       .from('parametres')
       .delete()
       .eq('cle', cle)
-
-    if (!error) {
-      set((s) => {
-        const next = { ...s.params }
-        delete next[cle]
-        return {
-          params:    next,
-          paramsRaw: s.paramsRaw.filter((p) => p.cle !== cle),
-        }
-      })
-    }
+      .eq('valeur', valeur)
+    if (!error) await get().loadParams(supabase)
     return { error }
   },
 
@@ -214,6 +218,6 @@ export const useDataStore = create((set, get) => ({
   resetData: () =>
     set({
       produits: [], mouvements: [], demandes: [],
-      params: {}, paramsRaw: [],
+      params: { destinations: [], categoriesIT: [], categoriesFin: [], emplacements: [] }, paramsRaw: [],
     }),
 }))

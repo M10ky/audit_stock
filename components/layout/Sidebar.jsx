@@ -14,6 +14,9 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { createClient }   from '@/lib/supabase/client'
 import { useRouter }      from 'next/navigation'
 
+// Importation du composant DeptBanner
+import DeptBanner from '@/components/layout/DeptBanner'
+
 function NavLink({ href, icon: Icon, label, badge, deptClass }) {
   const pathname = usePathname()
   const active   = pathname === href || pathname.startsWith(href + '/')
@@ -92,6 +95,9 @@ export default function Sidebar() {
             <IconX size={16} />
           </button>
         </div>
+
+        {/* Ajout du DeptBanner ici */}
+        <DeptBanner />
 
         {/* ── Navigation ── */}
         <nav className="sidebar-nav">
