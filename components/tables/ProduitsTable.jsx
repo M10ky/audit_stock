@@ -1,9 +1,6 @@
 'use client'
 import { useEffect } from 'react'
-import {
-  IconPlus, IconMinus, IconEdit, IconTrash,
-  IconArrowDownCircle, IconArrowUpCircle, IconPackage,
-} from '@tabler/icons-react'
+import { IconPlus, IconEdit, IconTrash, IconPackage } from '@tabler/icons-react'
 import { useDataStore } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -17,14 +14,13 @@ import AmortBar from '@/components/ui/badges/AmortBar'
 export default function ProduitsTable({ dept }) {
   const supabase = createClient()
   const produits = useDataStore(s => s.produits.filter(p => p.dept === dept))
-  const loadProduits   = useDataStore(s => s.loadProduits)
-  const deleteProduit  = useDataStore(s => s.deleteProduit)
+  const loadProduits  = useDataStore(s => s.loadProduits)
+  const deleteProduit = useDataStore(s => s.deleteProduit)
   const { openModal, openConfirm, showToast } = useUiStore()
   const perm = usePermissions()
 
   const canMan   = dept === 'IT' ? perm.canManIT : perm.canManFin
   const showPrix = perm.canSeePrix
-  const color    = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 
   useEffect(() => { loadProduits(supabase, dept) }, [dept]) // eslint-disable-line
 
@@ -52,11 +48,7 @@ export default function ProduitsTable({ dept }) {
           {showPrix && ` · Valeur totale : ${fmt(total)} MGA`}
         </div>
         {canMan && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Button variant="outline" icon={IconArrowDownCircle} onClick={() => openModal('entree', { dept })}>Entrée</Button>
-            <Button variant="danger" icon={IconArrowUpCircle} onClick={() => openModal('sortie', { dept })}>Sortie</Button>
-            <Button icon={IconPlus} onClick={() => openModal('add-produit', { dept })}>Produit</Button>
-          </div>
+          <Button icon={IconPlus} onClick={() => openModal('add-produit', { dept })}>Produit</Button>
         )}
       </div>
       <div className="table-wrap" style={{ border: 'none', boxShadow: 'none' }}>
@@ -105,9 +97,7 @@ export default function ProduitsTable({ dept }) {
                   <td><StatusTag stock={p.stock} seuil={p.seuil} /></td>
                   {canMan && (
                     <td>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        <Button size="icon" variant="outline" onClick={() => openModal('entree', { dept, prodId: p.id })} title="Entrée"><IconPlus size={14} /></Button>
-                        <Button size="icon" variant="danger" onClick={() => openModal('sortie', { dept, prodId: p.id })} title="Sortie"><IconMinus size={14} /></Button>
+                      <div style={{ display: 'flex', gap: 4 }}>
                         <Button size="icon" variant="outline" onClick={() => openModal('edit-produit', { dept, prod: p })} title="Modifier"><IconEdit size={14} /></Button>
                         {perm.isAdmin && (
                           <Button size="icon" variant="outline" onClick={() => handleDelete(p)} title="Supprimer"><IconTrash size={14} /></Button>
