@@ -9,6 +9,7 @@ import GlobalLoader     from './GlobalLoader'
 import Toast            from '@/components/ui/Toast'
 import ConfirmDialog    from '@/components/ui/ConfirmDialog'
 import ModalRoot        from '@/components/modals/ModalRoot'
+import SearchOverlay    from '@/components/search/SearchOverlay'
 
 export default function AppLayout({ children }) {
   useAuth()
@@ -29,6 +30,7 @@ export default function AppLayout({ children }) {
       <Toast />
       <ConfirmDialog />
       <ModalRoot />
+      <SearchOverlay />
     </div>
   )
 }
