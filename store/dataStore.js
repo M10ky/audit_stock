@@ -1,26 +1,22 @@
 // TODO: Phase 1 — Zustand store: produits, mouvements, demandes, params
-// actions: load*, submitMvt, submitAdd, submitEdit, deleteProduct, submitDem, validDem
 import { create } from 'zustand'
 import { genId } from '@/lib/helpers'
 
-/**
- * Store données métier.
- * Centralise tous les appels Supabase CRUD.
- * Le Realtime met à jour ces arrays via les actions reload*.
- */
 export const useDataStore = create((set, get) => ({
 
   // ── State ───────────────────────────────────────────────────
-  produits:          [],
-  mouvements:        [],
-  demandes:          [],
-  params:            {},     // { cle: valeur } pour accès direct
-  paramsRaw:         [],     // array brut { id, cle, valeur } pour admin
+  produits:                [],
+  mouvements:              [],
+  demandes:                [],
+  mouvementsEntrees:       [],   // ← Étape D+ : entrées sans filtre date (valeur cumulée)
+  params:                  {},
+  paramsRaw:               [],
 
-  loadingProduits:   false,
-  loadingMouvements: false,
-  loadingDemandes:   false,
-  loadingParams:     false,
+  loadingProduits:         false,
+  loadingMouvements:       false,
+  loadingDemandes:         false,
+  loadingParams:           false,
+  loadingMouvementsEntrees:false,
 
   // ══════════════════════════════════════════════════════════
   //  LOADERS
@@ -62,27 +58,44 @@ export const useDataStore = create((set, get) => ({
     return { data, error }
   },
 
-loadParams: async (supabase) => {
-  set({ loadingParams: true })
-  const { data, error } = await supabase
-    .from('parametres')
-    .select('*')
-    .order('valeur')
+  loadParams: async (supabase) => {
+    set({ loadingParams: true })
+    const { data, error } = await supabase
+      .from('parametres')
+      .select('*')
+      .order('valeur')
 
-  if (!error && data) {
-    set({
-      params: {
-        destinations:  data.filter(r => r.cle === 'destinations').map(r => r.valeur),
-        categoriesIT:  data.filter(r => r.cle === 'categoriesIT').map(r => r.valeur),
-        categoriesFin: data.filter(r => r.cle === 'categoriesFin').map(r => r.valeur),
-        emplacements:  data.filter(r => r.cle === 'emplacements').map(r => r.valeur),
-      },
-      paramsRaw: data,
-    })
-  }
-  set({ loadingParams: false })
-  return { data, error }
-},
+    if (!error && data) {
+      set({
+        params: {
+          destinations:  data.filter(r => r.cle === 'destinations').map(r => r.valeur),
+          categoriesIT:  data.filter(r => r.cle === 'categoriesIT').map(r => r.valeur),
+          categoriesFin: data.filter(r => r.cle === 'categoriesFin').map(r => r.valeur),
+          emplacements:  data.filter(r => r.cle === 'emplacements').map(r => r.valeur),
+          fournisseurs:  data.filter(r => r.cle === 'fournisseurs').map(r => r.valeur),
+        },
+        paramsRaw: data,
+      })
+    }
+    set({ loadingParams: false })
+    return { data, error }
+  },
+
+  /**
+   * Charge TOUTES les entrées (sans filtre de date) pour calculer
+   * la valeur cumulée par produit (getValeurTotaleProduit).
+   * Sélection minimale : produit_id + valeur.
+   */
+  loadMouvementsEntrees: async (supabase) => {
+    set({ loadingMouvementsEntrees: true })
+    const { data, error } = await supabase
+      .from('mouvements')
+      .select('produit_id, qty, valeur')
+      .eq('type', 'Entrée')
+    if (!error && data) set({ mouvementsEntrees: data })
+    set({ loadingMouvementsEntrees: false })
+    return { data, error }
+  },
 
   // ══════════════════════════════════════════════════════════
   //  PRODUITS — MUTATIONS
@@ -134,7 +147,6 @@ loadParams: async (supabase) => {
   },
 
   validDem: async (supabase, id, updates) => {
-    // updates = { statut, valideur, valideur_id, observation? }
     const { error } = await supabase
       .from('demandes')
       .update(updates)
@@ -146,22 +158,6 @@ loadParams: async (supabase) => {
   //  PARAMETRES — MUTATIONS
   // ══════════════════════════════════════════════════════════
 
-  // setParam: async (supabase, cle, valeur) => {
-  //   const { error } = await supabase
-  //     .from('parametres')
-  //     .upsert({ cle, valeur }, { onConflict: 'cle' })
-
-  //   if (!error) {
-  //     set((s) => ({
-  //       params:    { ...s.params, [cle]: valeur },
-  //       paramsRaw: s.paramsRaw.some((p) => p.cle === cle)
-  //         ? s.paramsRaw.map((p) => (p.cle === cle ? { ...p, valeur } : p))
-  //         : [...s.paramsRaw, { id: genId(), cle, valeur }],
-  //     }))
-  //   }
-  //   return { error }
-  // },
-  
   addParam: async (supabase, cle, valeur) => {
     const { error } = await supabase.from('parametres').insert({ cle, valeur })
     if (!error) await get().loadParams(supabase)
@@ -179,7 +175,7 @@ loadParams: async (supabase) => {
   },
 
   // ══════════════════════════════════════════════════════════
-  //  REALTIME — mise à jour locale après événement
+  //  REALTIME — mise à jour locale
   // ══════════════════════════════════════════════════════════
 
   onRealtimeProduit: (payload) => {
@@ -217,7 +213,17 @@ loadParams: async (supabase) => {
   // ── Reset complet ─────────────────────────────────────────
   resetData: () =>
     set({
-      produits: [], mouvements: [], demandes: [],
-      params: { destinations: [], categoriesIT: [], categoriesFin: [], emplacements: [] }, paramsRaw: [],
+      produits:          [],
+      mouvements:        [],
+      demandes:          [],
+      mouvementsEntrees: [],
+      params: {
+        destinations:  [],
+        categoriesIT:  [],
+        categoriesFin: [],
+        emplacements:  [],
+        fournisseurs:  [],
+      },
+      paramsRaw: [],
     }),
 }))
