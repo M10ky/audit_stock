@@ -102,9 +102,13 @@ export const useDataStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
 
   submitAdd: async (supabase, payload) => {
+    // Préfixe dérivé du département, miroir exact de js/stock.js:
+    // genId(dept === 'IT' ? 'IT' : 'FIN'). Sans ce préfixe, generateNomenclature()
+    // (Étape E) produirait des numéros CNTO-… incohérents pour ce produit.
+    const prefix = payload.dept === 'IT' ? 'IT' : 'FIN'
     const { error } = await supabase
       .from('produits')
-      .insert([{ id: genId(), ...payload }])
+      .insert([{ id: genId(prefix), ...payload }])
     return { error }
   },
 
@@ -129,9 +133,11 @@ export const useDataStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
 
   submitMvt: async (supabase, payload) => {
+    // Mirrors js/stock.js: genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
+    const prefix = payload.dept === 'IT' ? 'MVT-IT' : 'MVT-FIN'
     const { error } = await supabase
       .from('mouvements')
-      .insert([{ id: genId(), ...payload }])
+      .insert([{ id: genId(prefix), ...payload }])
     return { error }
   },
 
@@ -140,9 +146,11 @@ export const useDataStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
 
   submitDem: async (supabase, payload) => {
+    // Mirrors js/stock.js: genId(dept === 'IT' ? 'DEM-IT' : 'DEM-FIN')
+    const prefix = payload.dept === 'IT' ? 'DEM-IT' : 'DEM-FIN'
     const { error } = await supabase
       .from('demandes')
-      .insert([{ id: genId(), ...payload }])
+      .insert([{ id: genId(prefix), ...payload }])
     return { error }
   },
 

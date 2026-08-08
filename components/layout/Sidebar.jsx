@@ -123,12 +123,14 @@ export default function Sidebar() {
                 {p.canManIT && (
                   <NavLink href="/mouvements/it" icon={IconArrowsExchange} label="Mouvements IT"  />
                 )}
-                <NavLink
-                  href="/demandes/it"
-                  icon={IconClipboardList}
-                  label="Demandes IT"
-                  badge={p.canValidIT ? demandesEnAttenteIT : 0}
-                />
+                {p.canDemIT && (
+                  <NavLink
+                    href="/demandes/it"
+                    icon={IconClipboardList}
+                    label="Demandes IT"
+                    badge={p.canValidIT ? demandesEnAttenteIT : 0}
+                  />
+                )}
                 {p.canManIT && (
                   <NavLink
                     href="/alertes/it"
@@ -150,18 +152,20 @@ export default function Sidebar() {
                   Finance
                 </span>
               </div>
-              <ul>
+  <ul>
                 <NavLink href="/stock/fin"      icon={IconPackage}       label="Stock Finance"      deptClass="fin" />
                 {p.canManFin && (
                   <NavLink href="/mouvements/fin" icon={IconArrowsExchange} label="Mouvements Finance" deptClass="fin" />
                 )}
-                <NavLink
-                  href="/demandes/fin"
-                  icon={IconClipboardList}
-                  label="Demandes Finance"
-                  badge={p.canValidFin ? demandesEnAttenteFin : 0}
-                  deptClass="fin"
-                />
+                {p.canDemFin && (
+                  <NavLink
+                    href="/demandes/fin"
+                    icon={IconClipboardList}
+                    label="Demandes Finance"
+                    badge={p.canValidFin ? demandesEnAttenteFin : 0}
+                    deptClass="fin"
+                  />
+                )}
                 {p.canManFin && (
                   <NavLink
                     href="/alertes/fin"

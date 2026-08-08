@@ -33,7 +33,7 @@ export default function ProduitsTable({ dept }) {
 
   const cats     = [...new Set(produits.map(p => p.categorie))].sort()
   const filtered = applyFilters(produits, 'produit')
-  const valTotal = filtered.reduce((s, p) => s + p.stock * p.prix, 0)
+  const valTotal = filtered.reduce((s, p) => s + getValeurStockActuel(p, mouvementsEntrees), 0)
   const q        = filterState.query
 
   const handleDelete = (p) => {
@@ -49,7 +49,7 @@ export default function ProduitsTable({ dept }) {
     })
   }
 
-  const colSpan = (canMan ? 1 : 0) + (showPrix ? 3 : 0) + 7
+  const colSpan = (canMan ? 1 : 0) + (showPrix ? 1 : 0) + 7
 
   return (
     <>
@@ -86,7 +86,7 @@ export default function ProduitsTable({ dept }) {
                 <th>Emplacement</th>
                 <th>Stock</th>
                 <th>Seuil</th>
-                {showPrix && <><th>Prix unit.</th><th>Valeur stock</th><th>VNC</th></>}
+                {showPrix && <th>Valeur Stock (CUMP)</th>}
                 <th>Statut</th>
                 {canMan && <th>Actions</th>}
               </tr>
@@ -102,9 +102,6 @@ export default function ProduitsTable({ dept }) {
                 </tr>
               )}
               {filtered.map(p => {
-                const vnc        = calcVNC(p.valeur_achat, p.date_achat, p.duree_amortissement)
-                const pct        = amortPct(p.valeur_achat, p.date_achat, p.duree_amortissement)
-                const configured = !!(p.valeur_achat && p.date_achat && p.duree_amortissement)
                 const stockColor = p.stock === 0
                   ? 'var(--red)'
                   : p.stock <= p.seuil
@@ -139,18 +136,11 @@ export default function ProduitsTable({ dept }) {
                     <td className="text-muted">{p.seuil}</td>
 
                     {showPrix && (
-                      <>
-                        <td className="text-muted">{fmt(p.prix)} MGA</td>
-                        <td style={{ fontWeight: 700 }}>{fmt(p.stock * p.prix)} MGA</td>
-                        <td>
-                          {configured
-                            ? <div>
-                                <div style={{ fontWeight: 700, fontSize: 12 }}>{fmt(vnc)} MGA</div>
-                                <AmortBar pct={pct} />
-                              </div>
-                            : <span className="text-muted" style={{ fontSize: 11 }}>Non configuré</span>}
-                        </td>
-                      </>
+                      <td style={{ fontWeight: 700 }}>
+                        {p.is_amortissable
+                          ? <span className="text-muted" style={{ fontSize: 11 }}>Voir Actifs</span>
+                          : `${fmt(getValeurStockActuel(p, mouvementsEntrees))} MGA`}
+                      </td>
                     )}
 
                     <td><StatusTag stock={p.stock} seuil={p.seuil} /></td>

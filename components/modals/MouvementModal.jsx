@@ -6,21 +6,25 @@ import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { createClient } from '@/lib/supabase/client'
+import { getCUMPProduit } from '@/lib/helpers'
 
 export default function MouvementModal({ mvtType, dept, prodId: initialProdId }) {
   const supabase = createClient()
   const isEntree = mvtType === 'entree'
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 
-  const produits    = useDataStore(s => s.produits.filter(p => p.dept === dept))
-  const params      = useDataStore(s => s.params)
+  const produits          = useDataStore(s => s.produits.filter(p => p.dept === dept))
+  const params            = useDataStore(s => s.params)
+  const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
   const allProfiles = useAuthStore(s => s.allProfiles)
   const profile     = useAuthStore(s => s.profile)
   const { closeModal, showToast } = useUiStore()
-  const { submitMvt, loadProduits, loadMouvements } = useDataStore()
+  const { submitMvt, loadProduits, loadMouvements, loadMouvementsEntrees } = useDataStore()
 
   const [prodId, setProdId]   = useState(initialProdId || '')
   const [qty, setQty]         = useState(1)
+  const [prixUnit, setPrixUnit] = useState('')
+  const [prixEdited, setPrixEdited] = useState(false)
   const [userName, setUserName] = useState(profile?.name || '')
   const [dest, setDest]       = useState('')
   const [empl, setEmpl]       = useState('')
@@ -32,6 +36,13 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const destinations  = params.destinations || []
   const emplacements  = params.emplacements?.length ? params.emplacements : ['Stock Principal']
   const prod = produits.find(p => p.id === prodId)
+  const cump = prod ? getCUMPProduit(prod.id, mouvementsEntrees) : 0
+
+  // Suggestion de prix pour une Entrée : CUMP courant si connu — simple
+  // suggestion, modifiable librement par l'utilisateur (cf. prixEdited).
+  if (prod && isEntree && !prixEdited && cump > 0 && prixUnit === '') {
+    setPrixUnit(String(Math.round(cump)))
+  }
 
   const usersOptions = allProfiles.length
     ? allProfiles.filter(u => u.dept === dept || u.dept === 'both' || u.role === 'Administrateur')
@@ -41,6 +52,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     if (!prodId) return showToast('Sélectionnez un produit', 'error')
     if (!qty || qty <= 0) return showToast('Quantité invalide', 'error')
     if (!prod) return showToast('Produit introuvable', 'error')
+    if (isEntree && (!prixUnit || Number(prixUnit) <= 0)) return showToast('Le prix unitaire est obligatoire pour une entrée', 'error')
     if (mvtType === 'sortie' && prod.stock < qty) return showToast(`Stock insuffisant (${prod.stock} disponible)`, 'error')
     if (mvtType === 'sortie' && !dest) return showToast('Veuillez indiquer la destination', 'error')
 
@@ -54,6 +66,10 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     const { error: sErr } = await supabase.from('produits').update(updateData).eq('id', prodId)
     if (sErr) { showToast('Erreur: ' + sErr.message, 'error'); setLoading(false); return }
 
+    // Valorisation : Entrée → prix unitaire saisi ; Sortie → CUMP réel des
+    // entrées (jamais un champ "prix" catalogue manuel et déconnecté).
+    const valeurUnitaire = isEntree ? Number(prixUnit) : cump
+
     const { error: mErr } = await submitMvt(supabase, {
       date: tsNow.split('T')[0],
       created_at: tsNow,
@@ -61,7 +77,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
       produit_id: prodId,
       produit_nom: prod.nom,
       qty: Number(qty),
-      valeur: Number(qty) * prod.prix,
+      valeur: Number(qty) * valeurUnitaire,
       dept,
       user_name: userName || profile?.name || 'Système',
       user_id: profile?.id,
@@ -76,10 +92,13 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     if (mErr) return showToast('Erreur: ' + mErr.message, 'error')
 
     showToast(`${isEntree ? 'Entrée' : 'Sortie'} enregistrée — ${qty}× ${prod.nom}`)
-    await Promise.all([loadProduits(supabase, dept), loadMouvements(supabase, dept)])
+    await Promise.all([
+      loadProduits(supabase, dept),
+      loadMouvements(supabase, dept),
+      loadMouvementsEntrees(supabase),
+    ])
     closeModal()
   }
-
   return (
     <Modal
       title={isEntree ? '↓ Enregistrer une Entrée' : '↑ Enregistrer une Sortie'}
@@ -117,22 +136,41 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
         </select>
       </div>
 
-      <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-        <div className="form-group">
-          <label className="form-label">Quantité <span className="req">*</span></label>
-          <input className="form-input" type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} />
+      {isEntree ? (
+        <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+          <div className="form-group">
+            <label className="form-label">Quantité <span className="req">*</span></label>
+            <input className="form-input" type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Prix unit. (MGA) <span className="req">*</span></label>
+            <input
+              className="form-input" type="number" min={0} value={prixUnit}
+              onChange={e => { setPrixUnit(e.target.value); setPrixEdited(true) }}
+              placeholder="0"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Agent <span className="req">*</span></label>
+            <select className="form-select" value={userName} onChange={e => setUserName(e.target.value)}>
+              {usersOptions.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
+            </select>
+          </div>
         </div>
-        <div className="form-group">
-          <label className="form-label">Prix unit. (MGA)</label>
-          <input className="form-input" value={prod?.prix ?? ''} disabled placeholder="Auto" />
+      ) : (
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Quantité <span className="req">*</span></label>
+            <input className="form-input" type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Agent <span className="req">*</span></label>
+            <select className="form-select" value={userName} onChange={e => setUserName(e.target.value)}>
+              {usersOptions.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
+            </select>
+          </div>
         </div>
-        <div className="form-group">
-          <label className="form-label">Agent <span className="req">*</span></label>
-          <select className="form-select" value={userName} onChange={e => setUserName(e.target.value)}>
-            {usersOptions.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
-          </select>
-        </div>
-      </div>
+      )}
 
       {isEntree ? (
         <>

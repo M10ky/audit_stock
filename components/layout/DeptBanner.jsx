@@ -3,13 +3,20 @@
 // export default function DeptBanner() { return null }
 
 'use client'
-import { IconDeviceLaptop, IconCash, IconShieldCheck } from '@tabler/icons-react'
+import { IconDeviceLaptop, IconCash, IconShieldCheck, IconEye } from '@tabler/icons-react'
 import { useAuthStore } from '@/store/authStore'
 
 export default function DeptBanner() {
   const profile = useAuthStore(s => s.profile)
   const dept = profile?.dept
+  const role = profile?.role
 
+  if (role === 'Lecteur')
+    return (
+      <div className="dept-banner" style={{ background: 'rgba(124,58,237,.12)', color: '#7c3aed' }}>
+        <IconEye size={16} /> Vue Lecture
+      </div>
+    )
   if (dept === 'IT')
     return <div className="dept-banner it"><IconDeviceLaptop size={16} /> Département IT</div>
   if (dept === 'Finance')

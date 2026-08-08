@@ -5,7 +5,7 @@ import {
 import { useDataStore } from '@/store/dataStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useDateFilter } from '@/hooks/useDateFilter'
-import { fmt, fmtDTSplit } from '@/lib/helpers'
+import { fmt, fmtDTSplit, getValeurStockActuel } from '@/lib/helpers'
 import KpiCard from '@/components/ui/KpiCard'
 import TypeBadge from '@/components/ui/badges/TypeBadge'
 import DeptTag from '@/components/ui/badges/DeptTag'
@@ -17,11 +17,12 @@ export default function DashboardPage() {
   const produits   = useDataStore(s => s.produits)
   const mouvements = useDataStore(s => s.mouvements)
   const demandes   = useDataStore(s => s.demandes)
+  const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
 
   const prodIT  = produits.filter(p => p.dept === 'IT')
   const prodFin = produits.filter(p => p.dept === 'Finance')
-  const valIT   = prodIT.reduce((s, p) => s + p.stock * p.prix, 0)
-  const valFin  = prodFin.reduce((s, p) => s + p.stock * p.prix, 0)
+  const valIT   = prodIT.reduce((s, p) => s + getValeurStockActuel(p, mouvementsEntrees), 0)
+  const valFin  = prodFin.reduce((s, p) => s + getValeurStockActuel(p, mouvementsEntrees), 0)
   const alIT    = prodIT.filter(p => p.stock <= p.seuil).length
   const alFin   = prodFin.filter(p => p.stock <= p.seuil).length
   const attIT   = demandes.filter(d => d.dept === 'IT' && d.statut === 'En attente').length

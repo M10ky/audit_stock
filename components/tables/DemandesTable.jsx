@@ -7,7 +7,7 @@ import { useUiStore }      from '@/store/uiStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
-import { fmtDTSplit }      from '@/lib/helpers'
+import { fmtDTSplit, getCUMPProduit } from '@/lib/helpers'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
 import UrgBadge            from '@/components/ui/badges/UrgBadge'
@@ -23,6 +23,7 @@ export default function DemandesTable({ dept }) {
   const loadMouvements = useDataStore(s => s.loadMouvements)
   const validDemAction = useDataStore(s => s.validDem)
   const submitMvt      = useDataStore(s => s.submitMvt)
+  const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
   const profile  = useAuthStore(s => s.profile)
   const { openModal, showToast } = useUiStore()
   const perm = usePermissions()
@@ -63,7 +64,7 @@ export default function DemandesTable({ dept }) {
       const { error: mErr } = await submitMvt(supabase, {
         date: tsNow.split('T')[0], created_at: tsNow,
         type: 'Sortie', produit_id: prod.id, produit_nom: prod.nom,
-        qty: d.qty, valeur: d.qty * prod.prix, dept,
+        qty: d.qty, valeur: d.qty * getCUMPProduit(prod.id, mouvementsEntrees), dept,
         user_name: profile?.name || 'Système', user_id: profile?.id,
         destination: d.dest || '',
         observation: `Validation demande ${d.id} — ${d.demandeur}`,

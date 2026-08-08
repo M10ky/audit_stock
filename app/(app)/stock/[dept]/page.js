@@ -3,7 +3,7 @@ import { useParams } from 'next/navigation'
 import { usePermissions } from '@/hooks/usePermissions'
 import AccessDenied from '@/components/ui/AccessDenied'
 import ProduitsTable from '@/components/tables/ProduitsTable'
-import { fmt } from '@/lib/helpers'
+import { fmt, getValeurStockActuel } from '@/lib/helpers'
 import { useDataStore } from '@/store/dataStore'
 
 export default function StockPage() {
@@ -13,8 +13,9 @@ export default function StockPage() {
   const canSee = dept === 'IT' ? perm.canSeeIT : perm.canSeeFin
 
   const produits = useDataStore(s => s.produits.filter(p => p.dept === dept))
+  const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
   const showPrix = perm.canSeePrix
-  const total = produits.reduce((s, p) => s + p.stock * p.prix, 0)
+  const total = produits.reduce((s, p) => s + getValeurStockActuel(p, mouvementsEntrees), 0)
 
   if (!canSee) return <AccessDenied />
 
