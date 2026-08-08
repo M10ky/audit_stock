@@ -17,9 +17,10 @@ import InlineSearchBar     from '@/components/search/InlineSearchBar'
 export default function ProduitsTable({ dept }) {
   const supabase = createClient()
 
-  const produits      = useDataStore(s => s.produits.filter(p => p.dept === dept))
-  const loadProduits  = useDataStore(s => s.loadProduits)
-  const deleteProduit = useDataStore(s => s.deleteProduit)
+  const produits          = useDataStore(s => s.produits.filter(p => p.dept === dept))
+  const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
+  const loadProduits      = useDataStore(s => s.loadProduits)
+  const deleteProduit     = useDataStore(s => s.deleteProduit)
   const { openModal, openConfirm, showToast } = useUiStore()
   const perm = usePermissions()
 

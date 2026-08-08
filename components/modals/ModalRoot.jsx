@@ -4,6 +4,9 @@ import MouvementModal from './MouvementModal'
 import ProduitAddModal from './ProduitAddModal'
 import ProduitEditModal from './ProduitEditModal'
 import DemandeModal from './DemandeModal'
+import ActifEditModal from './ActifEditModal'
+import ActifHistoriqueModal from './ActifHistoriqueModal'
+import ActifTransferModal from './ActifTransferModal'
 
 export default function ModalRoot() {
   const modal = useUiStore(s => s.modal)
@@ -19,6 +22,12 @@ export default function ModalRoot() {
       return <ProduitEditModal dept={modal.dept} produit={modal.prod} />
     case 'demande':
       return <DemandeModal dept={modal.dept} />
+    case 'edit-actif':
+      return <ActifEditModal actif={modal.actif} />
+    case 'actif-historique':
+      return <ActifHistoriqueModal actif={modal.actif} />
+    case 'actif-transfer':
+      return <ActifTransferModal actif={modal.actif} />
     default:
       return null
   }

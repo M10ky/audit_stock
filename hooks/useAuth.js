@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 import { useDataStore } from '@/store/dataStore'
+import { useActifsStore } from '@/store/actifsStore'
 import { getPermissions } from '@/lib/permissions'
 
 /**
@@ -22,6 +23,7 @@ export function useAuth() {
   } = useAuthStore()
 
   const { resetData } = useDataStore()
+  const resetActifs = useActifsStore((s) => s.resetActifs)
 
   useEffect(() => {
     // Récupération de la session initiale
@@ -48,6 +50,7 @@ export function useAuth() {
         if (event === 'SIGNED_OUT') {
           reset()
           resetData()
+          resetActifs()
           router.push('/login')
         }
         if (event === 'TOKEN_REFRESHED' && session?.user) {

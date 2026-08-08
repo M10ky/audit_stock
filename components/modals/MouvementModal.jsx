@@ -6,7 +6,8 @@ import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { createClient } from '@/lib/supabase/client'
-import { getCUMPProduit } from '@/lib/helpers'
+import { getCUMPProduit, genId } from '@/lib/helpers'
+import { useActifsStore } from '@/store/actifsStore'
 
 export default function MouvementModal({ mvtType, dept, prodId: initialProdId }) {
   const supabase = createClient()
@@ -20,6 +21,8 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const profile     = useAuthStore(s => s.profile)
   const { closeModal, showToast } = useUiStore()
   const { submitMvt, loadProduits, loadMouvements, loadMouvementsEntrees } = useDataStore()
+  const createActifUnits      = useActifsStore(s => s.createActifUnits)
+  const syncStockDepuisActifs = useActifsStore(s => s.syncStockDepuisActifs)
 
   const [prodId, setProdId]   = useState(initialProdId || '')
   const [qty, setQty]         = useState(1)
@@ -53,14 +56,37 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     if (!qty || qty <= 0) return showToast('Quantité invalide', 'error')
     if (!prod) return showToast('Produit introuvable', 'error')
     if (isEntree && (!prixUnit || Number(prixUnit) <= 0)) return showToast('Le prix unitaire est obligatoire pour une entrée', 'error')
+    if (mvtType === 'sortie' && prod.is_amortissable) {
+      return showToast(
+        "Ce produit est à suivi individuel — la sortie se fait en attribuant une demande depuis la page Demandes, pas ici.",
+        'error'
+      )
+    }
     if (mvtType === 'sortie' && prod.stock < qty) return showToast(`Stock insuffisant (${prod.stock} disponible)`, 'error')
     if (mvtType === 'sortie' && !dest) return showToast('Veuillez indiquer la destination', 'error')
 
     setLoading(true)
-    const newStock = isEntree ? prod.stock + Number(qty) : prod.stock - Number(qty)
     const tsNow = new Date().toISOString()
+    const mvtId = genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
+    const isAmortEntree = isEntree && prod.is_amortissable
 
-    const updateData = { stock: newStock, updated_at: tsNow }
+    // Pour une entrée sur produit amortissable : les actifs sont créés
+    // AVANT toute écriture sur mouvements/produits. Si ça échoue, rien
+    // d'autre n'a été touché — pas de mouvement orphelin.
+    if (isAmortEntree) {
+      const { ok, message } = await createActifUnits(supabase, {
+        prod, qty: Number(qty), mvtId, emplacement: empl, prixUnit: Number(prixUnit),
+      })
+      if (!ok) { setLoading(false); return showToast('Erreur (actifs) : ' + message, 'error') }
+    }
+
+    // Le stock d'un produit amortissable n'est jamais modifié à la main —
+    // il est recalculé juste après depuis le nombre réel d'actifs "En
+    // service" (syncStockDepuisActifs), seule source de vérité.
+    const updateData = { updated_at: tsNow }
+    if (!prod.is_amortissable) {
+      updateData.stock = isEntree ? prod.stock + Number(qty) : prod.stock - Number(qty)
+    }
     if (isEntree && empl) updateData.emplacement = empl
 
     const { error: sErr } = await supabase.from('produits').update(updateData).eq('id', prodId)
@@ -71,6 +97,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     const valeurUnitaire = isEntree ? Number(prixUnit) : cump
 
     const { error: mErr } = await submitMvt(supabase, {
+      id: mvtId,
       date: tsNow.split('T')[0],
       created_at: tsNow,
       type: isEntree ? 'Entrée' : 'Sortie',
@@ -87,10 +114,13 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
       fournisseur,
       observation: obs,
     })
+    if (mErr) { setLoading(false); return showToast('Erreur: ' + mErr.message, 'error') }
+
+    if (isAmortEntree) {
+      await syncStockDepuisActifs(supabase, prodId)
+    }
 
     setLoading(false)
-    if (mErr) return showToast('Erreur: ' + mErr.message, 'error')
-
     showToast(`${isEntree ? 'Entrée' : 'Sortie'} enregistrée — ${qty}× ${prod.nom}`)
     await Promise.all([
       loadProduits(supabase, dept),

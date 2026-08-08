@@ -133,12 +133,19 @@ export const useDataStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
 
   submitMvt: async (supabase, payload) => {
-    // Mirrors js/stock.js: genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
+    // Mirrors js/stock.js: genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN').
+    // Accepte désormais un id explicite (payload.id) — nécessaire quand
+    // l'appelant doit connaître l'id AVANT l'insertion (ex: MouvementModal
+    // lie mouvement_entree_id sur des actifs créés avant ce mouvement).
+    // Repli sur genId(prefix) si absent — comportement inchangé pour tous
+    // les appelants existants.
     const prefix = payload.dept === 'IT' ? 'MVT-IT' : 'MVT-FIN'
+    const { id: explicitId, ...rest } = payload
+    const id = explicitId || genId(prefix)
     const { error } = await supabase
       .from('mouvements')
-      .insert([{ id: genId(prefix), ...payload }])
-    return { error }
+      .insert([{ id, ...rest }])
+    return { error, id }
   },
 
   // ══════════════════════════════════════════════════════════

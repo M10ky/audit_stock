@@ -5,7 +5,7 @@ import {
   IconLayoutDashboard, IconPackage, IconArrowsExchange,
   IconClipboardList, IconBell, IconHistory,
   IconChartBar, IconTrendingDown, IconUsers,
-  IconSettings, IconLogout, IconX,
+  IconSettings, IconLogout, IconX, IconDevices,
 } from '@tabler/icons-react'
 import { useAuthStore } from '@/store/authStore'
 import { useDataStore } from '@/store/dataStore'
@@ -140,6 +140,9 @@ export default function Sidebar() {
                     deptClass="it"
                   />
                 )}
+                {p.canSeeActifsIT && (
+                  <NavLink href="/actifs/it" icon={IconDevices} label="Actifs IT" />
+                )}
               </ul>
             </>
           )}
@@ -174,6 +177,9 @@ export default function Sidebar() {
                     badge={alertesFin}
                     deptClass="fin"
                   />
+                )}
+                {p.canSeeActifsFin && (
+                  <NavLink href="/actifs/fin" icon={IconDevices} label="Actifs Finance" deptClass="fin" />
                 )}
               </ul>
             </>

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
+import { useActifsStore } from '@/store/actifsStore'
 
 /**
  * Hook Realtime — s'abonne aux 4 tables via postgres_changes.
@@ -21,6 +22,8 @@ export function useRealtime() {
     onRealtimeDemande,
     loadParams,
   } = useDataStore()
+
+  const onRealtimeActif = useActifsStore((s) => s.onRealtimeActif)
 
   useEffect(() => {
     if (!profile) return
@@ -70,6 +73,14 @@ export function useRealtime() {
         schema: 'public',
         table:  'parametres',
       }, () => loadParams(supabase))
+
+      // ── Actifs individuels ──────────────────────────────
+      .on('postgres_changes', {
+        event:  '*',
+        schema: 'public',
+        table:  'actifs_individuels',
+        ...(deptFilter ? { filter: deptFilter } : {}),
+      }, onRealtimeActif)
 
       .subscribe()
 

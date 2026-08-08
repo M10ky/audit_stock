@@ -7,7 +7,8 @@ import { useUiStore }      from '@/store/uiStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
-import { fmtDTSplit, getCUMPProduit } from '@/lib/helpers'
+import { fmtDTSplit, genId } from '@/lib/helpers'
+import { useActifsStore } from '@/store/actifsStore'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
 import UrgBadge            from '@/components/ui/badges/UrgBadge'
@@ -17,16 +18,16 @@ import InlineSearchBar     from '@/components/search/InlineSearchBar'
 export default function DemandesTable({ dept }) {
   const supabase = createClient()
 
-  const demandes       = useDataStore(s => s.demandes.filter(d => d.dept === dept))
-  const loadDemandes   = useDataStore(s => s.loadDemandes)
-  const loadProduits   = useDataStore(s => s.loadProduits)
-  const loadMouvements = useDataStore(s => s.loadMouvements)
-  const validDemAction = useDataStore(s => s.validDem)
-  const submitMvt      = useDataStore(s => s.submitMvt)
-  const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
+  const demandes            = useDataStore(s => s.demandes.filter(d => d.dept === dept))
+  const loadDemandes        = useDataStore(s => s.loadDemandes)
+  const loadProduits        = useDataStore(s => s.loadProduits)
+  const loadMouvements      = useDataStore(s => s.loadMouvements)
+  const loadMouvementsEntrees = useDataStore(s => s.loadMouvementsEntrees)
+  const validDemAction      = useDataStore(s => s.validDem)
   const profile  = useAuthStore(s => s.profile)
   const { openModal, showToast } = useUiStore()
   const perm = usePermissions()
+  const attribuerDemandeAmortissable = useActifsStore(s => s.attribuerDemandeAmortissable)
 
   const pageKey = `dem-${dept === 'IT' ? 'it' : 'fin'}`
   const { filterState, setFilterState, applyFilters } = useInlineFilter(pageKey)
@@ -41,50 +42,69 @@ export default function DemandesTable({ dept }) {
   const q         = filterState.query
 
   const handleValid = async (d, action) => {
-    if (action === 'Validé') {
-      await loadProduits(supabase, dept)
-      const fresh = useDataStore.getState().produits
-      const prod  = fresh.find(p =>
-        p.dept === dept &&
-        p.nom.trim().toLowerCase() === d.produit.trim().toLowerCase()
-      )
-      if (!prod) {
-        return showToast(`Produit "${d.produit}" introuvable dans l'inventaire ${dept}`, 'error')
-      }
-      if (prod.stock < d.qty) {
-        return showToast(`Stock insuffisant : ${prod.stock} disponible, ${d.qty} demandé`, 'error')
-      }
-      const tsNow = new Date().toISOString()
-      const { error: sErr } = await supabase
-        .from('produits')
-        .update({ stock: prod.stock - d.qty, updated_at: tsNow })
-        .eq('id', prod.id)
-      if (sErr) return showToast('Erreur: ' + sErr.message, 'error')
-
-      const { error: mErr } = await submitMvt(supabase, {
-        date: tsNow.split('T')[0], created_at: tsNow,
-        type: 'Sortie', produit_id: prod.id, produit_nom: prod.nom,
-        qty: d.qty, valeur: d.qty * getCUMPProduit(prod.id, mouvementsEntrees), dept,
-        user_name: profile?.name || 'Système', user_id: profile?.id,
-        destination: d.dest || '',
-        observation: `Validation demande ${d.id} — ${d.demandeur}`,
+    if (action === 'Refusé') {
+      // Aucun impact stock — simple mise à jour de statut, pas besoin de RPC.
+      const { error } = await validDemAction(supabase, d.id, {
+        statut: 'Refusé',
+        valideur: profile?.name || '',
+        valideur_id: profile?.id,
+        updated_at: new Date().toISOString(),
       })
-      if (mErr) return showToast('Erreur: ' + mErr.message, 'error')
+      if (error) return showToast('Erreur: ' + error.message, 'error')
+      showToast('Demande refusée')
+      return loadDemandes(supabase, dept)
     }
 
-    const { error } = await validDemAction(supabase, d.id, {
-      statut: action,
-      valideur: profile?.name || '',
-      valideur_id: profile?.id,
-      updated_at: new Date().toISOString(),
-    })
-    if (error) return showToast('Erreur: ' + error.message, 'error')
+    // action === 'Validé'
+    await loadProduits(supabase, dept)
+    const fresh = useDataStore.getState().produits
+    const prod  = fresh.find(p =>
+      p.dept === dept &&
+      p.nom.trim().toLowerCase() === d.produit.trim().toLowerCase()
+    )
+    if (!prod) {
+      return showToast(`Produit "${d.produit}" introuvable dans l'inventaire ${dept}`, 'error')
+    }
+    if (prod.actif === false) {
+      return showToast(`"${prod.nom}" est désactivé — validation impossible`, 'error')
+    }
+if (prod.is_amortissable) {
+      const { error } = await attribuerDemandeAmortissable(
+        supabase,
+        { demande: d, produit: prod, dept, dest: d.dest },
+        profile
+      )
+      if (error) return showToast('Erreur : ' + error.message, 'error')
+      showToast(`Demande validée — ${d.qty} unité(s) attribuée(s)`)
+      return Promise.all([
+        loadDemandes(supabase, dept),
+        loadProduits(supabase, dept),
+        loadMouvements(supabase, dept),
+      ])
+    }
 
-    showToast(action === 'Validé' ? 'Demande validée — stock mis à jour' : 'Demande refusée')
+    const mvtId = genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
+
+    // Validation atomique côté DB : vérifie le stock avec verrou (FOR UPDATE),
+    // décrémente, insère le mouvement de Sortie et met à jour le statut de la
+    // demande dans une seule transaction. Remplace l'ancien enchaînement
+    // update + insert + update côté client, non atomique et sujet aux race
+    // conditions en cas de validations concurrentes.
+    const { error: rpcErr } = await supabase.rpc('rpc_valider_demande_simple', {
+      p_demande_id:   d.id,
+      p_produit_id:   prod.id,
+      p_qty:          d.qty,
+      p_valideur_id:  profile?.id,
+      p_valideur_nom: profile?.name || 'Système',
+    })
+    if (rpcErr) return showToast('Erreur: ' + rpcErr.message, 'error')
+
+    showToast('Demande validée — stock mis à jour')
     await Promise.all([
       loadDemandes(supabase, dept),
       loadProduits(supabase, dept),
       loadMouvements(supabase, dept),
+      loadMouvementsEntrees(supabase),
     ])
   }
 

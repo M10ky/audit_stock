@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 import { useDataStore } from '@/store/dataStore'
+import { useActifsStore } from '@/store/actifsStore'
 
 /**
  * Charge toutes les données initiales une fois le profil disponible.
@@ -19,6 +20,7 @@ export function useInitialData() {
   const loadParams             = useDataStore(s => s.loadParams)
   const loadMouvementsEntrees  = useDataStore(s => s.loadMouvementsEntrees)
   const loadAllProfiles        = useAuthStore(s => s.loadAllProfiles)
+  const loadActifs             = useActifsStore(s => s.loadActifs)
 
   useEffect(() => {
     if (!profile || done.current) return
@@ -32,6 +34,7 @@ export function useInitialData() {
       loadDemandes(supabase, dept),
       loadParams(supabase),
       loadMouvementsEntrees(supabase),
+      loadActifs(supabase),
       profile.role === 'Administrateur' ? loadAllProfiles(supabase) : Promise.resolve(),
     ])
   }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
