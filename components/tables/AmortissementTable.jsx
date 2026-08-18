@@ -2,15 +2,17 @@
 import {
   IconTrendingDown, IconEdit, IconAlertTriangle, IconInfoCircle,
 } from '@tabler/icons-react'
-import { useDataStore }   from '@/store/dataStore'
+import { useActifsStore } from '@/store/actifsStore'
 import { usePermissions } from '@/hooks/usePermissions'
-import { useUiStore }     from '@/store/uiStore'
-import { fmt, fmtDate }  from '@/lib/helpers'
+import { useUiStore } from '@/store/uiStore'
+import { fmt, fmtDate } from '@/lib/helpers'
 import {
-  calcVNC, amortPct, amortColor, tauxLineaire, annuiteLineaire,
-} from '@/lib/amortissement'
+  STATUS_ACTIF, calcVNCActif, amortPctActif,
+} from '@/lib/actifs'
+import { tauxLineaire, annuiteLineaire, amortColor } from '@/lib/amortissement'
 import AmortBar  from '@/components/ui/badges/AmortBar'
 import DeptTag   from '@/components/ui/badges/DeptTag'
+import ActifStatutBadge from '@/components/ui/badges/ActifStatutBadge'
 import Button    from '@/components/ui/Button'
 
 // ── Couleurs de bordure pour les KPI cards ────────────────────
@@ -40,38 +42,44 @@ export default function AmortissementTable() {
   const perm       = usePermissions()
   const { openModal } = useUiStore()
 
-  // Produits visibles selon les droits
-  const produits = useDataStore(s =>
-    s.produits.filter(p =>
-      (perm.canSeeIT  && p.dept === 'IT') ||
-      (perm.canSeeFin && p.dept === 'Finance')
+  // Actifs individuels visibles selon les droits — SOURCE UNIQUE de vérité
+  // pour l'amortissement. On ne lit plus jamais produits.valeur_achat /
+  // date_achat / duree_amortissement (champs catalogue, quasi jamais
+  // renseignés depuis l'introduction du suivi individuel — cf. Étape 0,
+  // point 1.2).
+  const actifs = useActifsStore(s =>
+    s.actifs.filter(a =>
+      (perm.canSeeIT  && a.dept === 'IT') ||
+      (perm.canSeeFin && a.dept === 'Finance')
     )
   )
 
-  // Séparation : avec / sans données d'amortissement
-  const avecAmort = produits.filter(
-    p => p.valeur_achat > 0 && p.date_achat && p.duree_amortissement
+  // Un actif est "amortissable exploitable" s'il porte les 3 champs requis.
+  // valeur_achat peut être à 0 si l'entrée d'origine n'avait pas de prix
+  // saisi (cas limite défensif, cf. createActifUnits) — on le classe alors
+  // en "sans données" plutôt que d'afficher une VNC à 0 trompeuse.
+  const avecAmort = actifs.filter(
+    a => a.valeur_achat > 0 && a.date_achat && a.duree_amortissement
   )
-  const sansAmort = produits.filter(
-    p => !p.valeur_achat || !p.date_achat || !p.duree_amortissement
+  const sansAmort = actifs.filter(
+    a => !(a.valeur_achat > 0 && a.date_achat && a.duree_amortissement)
   )
 
-  // KPIs agrégés
-  const totalAchat  = avecAmort.reduce((s, p) => s + (p.valeur_achat || 0), 0)
-  const totalVNC    = avecAmort.reduce(
-    (s, p) => s + calcVNC(p.valeur_achat, p.date_achat, p.duree_amortissement),
-    0
-  )
-  const totalAmort  = totalAchat - totalVNC
-  const pctGlobal   = totalAchat > 0 ? Math.round((totalAmort / totalAchat) * 100) : 0
-  const nbExpires   = avecAmort.filter(
-    p => calcVNC(p.valeur_achat, p.date_achat, p.duree_amortissement) === 0
-  ).length
+  // Les actifs Réformés sont exclus des totaux "patrimoine actif" (ils sont
+  // sortis pour de bon) mais restent visibles dans le tableau détaillé pour
+  // la traçabilité — même logique que ActifsTable.jsx.
+  const actifsValorises = avecAmort.filter(a => a.statut !== STATUS_ACTIF.REFORME)
 
-  // Tri par valeur d'achat décroissante
+  const totalAchat = actifsValorises.reduce((s, a) => s + (a.valeur_achat || 0), 0)
+  const totalVNC   = actifsValorises.reduce((s, a) => s + (calcVNCActif(a) || 0), 0)
+  const totalAmort = totalAchat - totalVNC
+  const pctGlobal  = totalAchat > 0 ? Math.round((totalAmort / totalAchat) * 100) : 0
+  const nbExpires  = actifsValorises.filter(a => calcVNCActif(a) === 0).length
+
+  // Tri par valeur d'achat décroissante — tous statuts confondus (y compris
+  // Réformé) pour que le tableau reste un registre complet.
   const sorted = [...avecAmort].sort((a, b) => (b.valeur_achat || 0) - (a.valeur_achat || 0))
 
-  // ── Rendu ──────────────────────────────────────────────────
   return (
     <>
       {/* Bannière méthode */}
@@ -89,8 +97,9 @@ export default function AmortissementTable() {
       }}>
         <IconInfoCircle size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
         <div>
-          <strong>Méthode linéaire :</strong> L&apos;actif perd une valeur égale chaque année.
-          Taux annuel = 100 % / Durée en années.
+          <strong>Méthode linéaire, par actif individuel :</strong> chaque actif amortit depuis sa
+          propre date et sa propre valeur d&apos;achat, jusqu&apos;à sa valeur résiduelle éventuelle.
+          Les actifs réformés sont exclus des totaux ci-dessous.
         </div>
       </div>
 
@@ -99,7 +108,7 @@ export default function AmortissementTable() {
         <KpiAmort
           label="Valeur Achat Totale"
           value={`${fmt(totalAchat)} MGA`}
-          sub={`${avecAmort.length} actif${avecAmort.length > 1 ? 's' : ''}`}
+          sub={`${actifsValorises.length} actif${actifsValorises.length > 1 ? 's' : ''} actif${actifsValorises.length > 1 ? 's' : ''}`}
           colorKey="indigo"
           icon={IconTrendingDown}
         />
@@ -113,14 +122,14 @@ export default function AmortissementTable() {
         <KpiAmort
           label="Amortissement Cumulé"
           value={`${fmt(totalAmort)} MGA`}
-          sub={avecAmort.length > 0 ? `${pctGlobal} % de la valeur initiale` : '—'}
+          sub={actifsValorises.length > 0 ? `${pctGlobal} % de la valeur initiale` : '—'}
           colorKey="amber"
           icon={IconTrendingDown}
         />
         <KpiAmort
           label="Actifs Totalement Amortis"
           value={nbExpires}
-          sub="VNC nulle"
+          sub="VNC au plancher (résiduelle ou 0)"
           colorKey="red"
           icon={IconAlertTriangle}
         />
@@ -132,7 +141,7 @@ export default function AmortissementTable() {
           <div className="card-header">
             <div className="card-header-title">
               <IconTrendingDown size={16} />
-              Tableau de bord des amortissements ({avecAmort.length})
+              Registre d&apos;amortissement — {avecAmort.length} actif{avecAmort.length > 1 ? 's' : ''}
             </div>
           </div>
 
@@ -142,58 +151,53 @@ export default function AmortissementTable() {
                 <tr>
                   <th>Dépt</th>
                   <th>Actif</th>
+                  <th>Numéro de série</th>
                   <th>Catégorie</th>
-                  <th>Emplacement</th>
                   <th>Valeur Achat</th>
                   <th>Date Achat</th>
                   <th>Durée · Taux</th>
                   <th>Dotation/an</th>
                   <th>VNC · Avancement</th>
+                  <th>Statut</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {sorted.map(p => {
-                  const vnc      = calcVNC(p.valeur_achat, p.date_achat, p.duree_amortissement)
-                  const pct      = amortPct(p.valeur_achat, p.date_achat, p.duree_amortissement)
+                {sorted.map(a => {
+                  const vnc      = calcVNCActif(a)
+                  const pct      = amortPctActif(a) ?? 0
                   const color    = amortColor(pct)
-                  const taux     = tauxLineaire(p.duree_amortissement)
-                  const annuite  = annuiteLineaire(p.valeur_achat, p.duree_amortissement)
-                  const canEdit  = (p.dept === 'IT' && perm.canManIT) ||
-                                   (p.dept === 'Finance' && perm.canManFin)
+                  const taux     = tauxLineaire(a.duree_amortissement)
+                  const annuite  = annuiteLineaire(a.valeur_achat, a.duree_amortissement)
+                  const canEdit  = (a.dept === 'IT' && perm.canManIT) ||
+                                   (a.dept === 'Finance' && perm.canManFin)
+                  const estReforme = a.statut === STATUS_ACTIF.REFORME
 
                   return (
-                    <tr key={p.id}>
-                      <td><DeptTag dept={p.dept} /></td>
+                    <tr key={a.id} className={estReforme ? 'alerte-row' : ''}>
+                      <td><DeptTag dept={a.dept} /></td>
 
-                      <td className="cell-name">{p.nom}</td>
+                      <td className="cell-name">{a.produit_nom}</td>
+
+                      <td className="cell-mono" style={{ fontSize: 11 }}>{a.id}</td>
 
                       <td>
                         <span
                           className="badge"
                           style={{ background: 'var(--bg)', color: 'var(--text2)' }}
                         >
-                          {p.categorie}
+                          {a.categorie}
                         </span>
                       </td>
 
-                      <td>
-                        {p.emplacement
-                          ? <span className="badge" style={{ background: '#dbeafe', color: '#1e40af' }}>
-                              {p.emplacement}
-                            </span>
-                          : <span className="text-muted">—</span>
-                        }
-                      </td>
-
                       <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>
-                        {fmt(p.valeur_achat)} MGA
+                        {fmt(a.valeur_achat)} MGA
                       </td>
 
-                      <td className="text-muted">{fmtDate(p.date_achat)}</td>
+                      <td className="text-muted">{fmtDate(a.date_achat)}</td>
 
                       <td style={{ fontSize: 11, color: 'var(--text3)' }}>
-                        {(p.duree_amortissement / 12).toFixed(1)} a ·{' '}
+                        {(a.duree_amortissement / 12).toFixed(1)} a ·{' '}
                         <strong>{taux} %/an</strong>
                       </td>
 
@@ -202,7 +206,9 @@ export default function AmortissementTable() {
                       </td>
 
                       <td>
-                        {vnc === 0 ? (
+                        {estReforme ? (
+                          <span className="text-muted" style={{ fontSize: 11 }}>Exclu (réformé)</span>
+                        ) : vnc === (a.valeur_residuelle || 0) && pct >= 100 ? (
                           <span
                             className="badge"
                             style={{ background: '#fef2f2', color: '#dc2626' }}
@@ -219,15 +225,15 @@ export default function AmortissementTable() {
                         )}
                       </td>
 
+                      <td><ActifStatutBadge statut={a.statut} /></td>
+
                       <td>
                         {canEdit && (
                           <Button
                             size="icon"
                             variant="outline"
                             title="Modifier les paramètres d'amortissement"
-                            onClick={() =>
-                              openModal('edit-produit', { dept: p.dept, prod: p })
-                            }
+                            onClick={() => openModal('edit-actif', { actif: a })}
                           >
                             <IconEdit size={14} />
                           </Button>
@@ -242,7 +248,7 @@ export default function AmortissementTable() {
         </div>
       )}
 
-      {/* Produits sans données d'amortissement */}
+      {/* Actifs sans données d'amortissement exploitables */}
       {sansAmort.length > 0 && (
         <div
           className="card"
@@ -251,7 +257,7 @@ export default function AmortissementTable() {
           <div className="card-header">
             <div className="card-header-title" style={{ color: 'var(--amber)' }}>
               <IconAlertTriangle size={16} />
-              {sansAmort.length} actif{sansAmort.length > 1 ? 's' : ''} sans données d&apos;amortissement
+              {sansAmort.length} actif{sansAmort.length > 1 ? 's' : ''} sans données d&apos;amortissement exploitables
             </div>
           </div>
 
@@ -260,35 +266,35 @@ export default function AmortissementTable() {
               <thead>
                 <tr>
                   <th>Dépt</th>
-                  <th>Produit</th>
+                  <th>Actif</th>
+                  <th>Numéro de série</th>
                   <th>Catégorie</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {sansAmort.slice(0, 5).map(p => {
+                {sansAmort.slice(0, 5).map(a => {
                   const canEdit =
-                    (p.dept === 'IT' && perm.canManIT) ||
-                    (p.dept === 'Finance' && perm.canManFin)
+                    (a.dept === 'IT' && perm.canManIT) ||
+                    (a.dept === 'Finance' && perm.canManFin)
                   return (
-                    <tr key={p.id}>
-                      <td><DeptTag dept={p.dept} /></td>
-                      <td style={{ fontWeight: 500 }}>{p.nom}</td>
+                    <tr key={a.id}>
+                      <td><DeptTag dept={a.dept} /></td>
+                      <td style={{ fontWeight: 500 }}>{a.produit_nom}</td>
+                      <td className="cell-mono" style={{ fontSize: 11 }}>{a.id}</td>
                       <td>
                         <span
                           className="badge"
                           style={{ background: 'var(--bg)', color: 'var(--text2)' }}
                         >
-                          {p.categorie}
+                          {a.categorie}
                         </span>
                       </td>
                       <td>
                         {canEdit && (
                           <Button
                             size="sm"
-                            onClick={() =>
-                              openModal('edit-produit', { dept: p.dept, prod: p })
-                            }
+                            onClick={() => openModal('edit-actif', { actif: a })}
                           >
                             Configurer
                           </Button>
@@ -300,7 +306,7 @@ export default function AmortissementTable() {
                 {sansAmort.length > 5 && (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="text-muted"
                       style={{ textAlign: 'center', fontSize: 11 }}
                     >
@@ -315,13 +321,14 @@ export default function AmortissementTable() {
       )}
 
       {/* État vide */}
-      {avecAmort.length === 0 && sansAmort.length === 0 && (
+      {actifs.length === 0 && (
         <div className="card">
           <div className="empty-state">
             <IconTrendingDown size={40} style={{ opacity: 0.3, margin: '0 auto 12px' }} />
-            <p style={{ fontWeight: 700 }}>Aucun produit trouvé</p>
+            <p style={{ fontWeight: 700 }}>Aucun actif individuel enregistré</p>
             <p style={{ fontSize: 13, marginTop: 4 }}>
-              Ajoutez des produits depuis les pages Stock IT ou Stock Finance.
+              Activez « Suivi individuel amortissable » sur un produit, puis enregistrez une entrée de stock
+              — les actifs et leur amortissement apparaîtront ici automatiquement.
             </p>
           </div>
         </div>
