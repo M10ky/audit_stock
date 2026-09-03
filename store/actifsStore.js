@@ -233,6 +233,23 @@ export const useActifsStore = create((set, get) => ({
     return { error }
   },
 
+  // Renommage du numéro de série — mirrors js/actifs.js submitEditActif (branche
+  // serialChanged). Délègue à rpc_renommer_actif : insert du nouvel id + report
+  // des FK (mouvements.actif_id, prets.actif_numero) + delete de l'ancien id,
+  // dans une seule transaction SQL avec verrou FOR UPDATE. Un simple update de
+  // la colonne id romprait les FK ; une séquence de requêtes côté client
+  // (insert puis delete non transactionnels) laisserait un doublon en base si
+  // l'une des étapes échouait en route — c'est exactement le bug historique
+  // que cette RPC a corrigé côté Vanilla.
+  renommerActif: async (supabase, oldId, newId, observation) => {
+    const { error } = await supabase.rpc('rpc_renommer_actif', {
+      p_old_id: oldId,
+      p_new_id: newId,
+      p_observation: observation,
+    })
+    return { error }
+  },
+
   // Réintégration d'un actif "Sorti" — DOIT réincrémenter le stock du
   // produit, d'où la RPC atomique dédiée plutôt qu'un simple update.
   reintegrerActif: async (supabase, actifId, profile) => {
