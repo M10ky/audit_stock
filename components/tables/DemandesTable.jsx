@@ -27,8 +27,7 @@ export default function DemandesTable({ dept }) {
   const profile  = useAuthStore(s => s.profile)
   const { openModal, showToast } = useUiStore()
   const perm = usePermissions()
-  const attribuerDemandeAmortissable = useActifsStore(s => s.attribuerDemandeAmortissable)
-
+  const { withSubmitLock } = useUiStore()
   const pageKey = `dem-${dept === 'IT' ? 'it' : 'fin'}`
   const { filterState, setFilterState, applyFilters } = useInlineFilter(pageKey)
 
@@ -41,7 +40,7 @@ export default function DemandesTable({ dept }) {
   const enAttente = filtered.filter(d => d.statut === 'En attente').length
   const q         = filterState.query
 
-  const handleValid = async (d, action) => {
+  const handleValid = (d, action) => withSubmitLock(async () => {
     if (action === 'Refusé') {
       // Aucun impact stock — simple mise à jour de statut, pas besoin de RPC.
       const { error } = await validDemAction(supabase, d.id, {
@@ -69,20 +68,13 @@ export default function DemandesTable({ dept }) {
       return showToast(`"${prod.nom}" est désactivé — validation impossible`, 'error')
     }
 if (prod.is_amortissable) {
-      const { error } = await attribuerDemandeAmortissable(
-        supabase,
-        { demande: d, produit: prod, dept, dest: d.dest },
-        profile
-      )
-      if (error) return showToast('Erreur : ' + error.message, 'error')
-      showToast(`Demande validée — ${d.qty} unité(s) attribuée(s)`)
-      return Promise.all([
-        loadDemandes(supabase, dept),
-        loadProduits(supabase, dept),
-        loadMouvements(supabase, dept),
-      ])
+      // Mirrors js/app.js openDemAttribution() : ouvre un sélecteur manuel
+      // d'actifs plutôt qu'une attribution FIFO automatique — le validateur
+      // choisit précisément quel matériel est attribué avant que la demande
+      // ne soit réellement validée.
+      openModal('dem-attribution', { demande: d, produit: prod, dept })
+      return
     }
-
     const mvtId = genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
 
     // Validation atomique côté DB : vérifie le stock avec verrou (FOR UPDATE),
@@ -90,12 +82,21 @@ if (prod.is_amortissable) {
     // demande dans une seule transaction. Remplace l'ancien enchaînement
     // update + insert + update côté client, non atomique et sujet aux race
     // conditions en cas de validations concurrentes.
+    // FIX (paramètres RPC) : les noms ci-dessous ne correspondaient pas à la
+    // signature réelle de rpc_valider_demande_simple (cf. js/app.js validDem()) —
+    // Supabase RPC résout les paramètres par nom, donc un mismatch fait échouer
+    // l'appel (fonction introuvable) plutôt qu'une simple erreur silencieuse.
+    // p_dept, p_dest et p_mvt_id étaient en plus totalement absents alors que
+    // requis par la fonction SQL pour insérer le mouvement de sortie.
     const { error: rpcErr } = await supabase.rpc('rpc_valider_demande_simple', {
-      p_demande_id:   d.id,
-      p_produit_id:   prod.id,
-      p_qty:          d.qty,
-      p_valideur_id:  profile?.id,
-      p_valideur_nom: profile?.name || 'Système',
+      p_dem_id:     d.id,
+      p_produit_id: prod.id,
+      p_qty:        d.qty,
+      p_dept:       dept,
+      p_dest:       d.dest || '',
+      p_mvt_id:     mvtId,
+      p_user_name:  profile?.name || 'Système',
+      p_user_id:    profile?.id || null,
     })
     if (rpcErr) return showToast('Erreur: ' + rpcErr.message, 'error')
 
@@ -106,7 +107,7 @@ if (prod.is_amortissable) {
       loadMouvements(supabase, dept),
       loadMouvementsEntrees(supabase),
     ])
-  }
+  })
 
   return (
     <>

@@ -5,7 +5,7 @@ import {
   IconLayoutDashboard, IconPackage, IconArrowsExchange,
   IconClipboardList, IconBell, IconHistory,
   IconChartBar, IconTrendingDown, IconUsers,
-  IconSettings, IconLogout, IconX, IconDevices,
+  IconSettings, IconLogout, IconX, IconDevices, IconTransfer,
 } from '@tabler/icons-react'
 import { useAuthStore } from '@/store/authStore'
 import { useDataStore } from '@/store/dataStore'
@@ -143,6 +143,9 @@ export default function Sidebar() {
                 {p.canSeeActifsIT && (
                   <NavLink href="/actifs/it" icon={IconDevices} label="Actifs IT" />
                 )}
+                {p.canSeePretsIT && (
+                  <NavLink href="/prets/it" icon={IconTransfer} label="Prêts IT" />
+                )}
               </ul>
             </>
           )}
@@ -180,6 +183,9 @@ export default function Sidebar() {
                 )}
                 {p.canSeeActifsFin && (
                   <NavLink href="/actifs/fin" icon={IconDevices} label="Actifs Finance" deptClass="fin" />
+                )}
+                {p.canSeePretsFin && (
+                  <NavLink href="/prets/fin" icon={IconTransfer} label="Prêts Finance" deptClass="fin" />
                 )}
               </ul>
             </>

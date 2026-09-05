@@ -19,7 +19,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
   const allProfiles = useAuthStore(s => s.allProfiles)
   const profile     = useAuthStore(s => s.profile)
-  const { closeModal, showToast } = useUiStore()
+  const { closeModal, showToast, isSubmitting, withSubmitLock } = useUiStore()
   const { submitMvt, loadProduits, loadMouvements, loadMouvementsEntrees } = useDataStore()
   const createActifUnits      = useActifsStore(s => s.createActifUnits)
   const syncStockDepuisActifs = useActifsStore(s => s.syncStockDepuisActifs)
@@ -35,6 +35,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const [refDoc, setRefDoc]   = useState('')
   const [fournisseur, setFournisseur] = useState('')
   const [loading, setLoading] = useState(false)
+  const busy = loading || isSubmitting
 
   const destinations  = params.destinations || []
   const emplacements  = params.emplacements?.length ? params.emplacements : ['Stock Principal']
@@ -136,7 +137,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
       footer={
         <>
           <Button variant="outline" onClick={closeModal}>Annuler</Button>
-          <Button variant={isEntree ? 'primary' : 'danger'} loading={loading} onClick={handleSubmit}>
+          <Button variant={isEntree ? 'primary' : 'danger'} loading={busy} disabled={busy} onClick={handleSubmit}>
             {isEntree ? '✓ Valider Entrée' : '✓ Valider Sortie'}
           </Button>
         </>

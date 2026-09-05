@@ -104,4 +104,31 @@ export const useUiStore = create((set, get) => ({
 
   openConfirm:  (opts) => set({ confirm: opts }),
   closeConfirm: ()     => set({ confirm: null }),
+
+  // ══════════════════════════════════════════════════════════
+  //  ANTI-DOUBLE-CLIC (soumissions réseau)
+  //  Mirrors ST.isSubmitting + withSubmitLock() du vanilla (js/utils.js).
+  //  Le vanilla désactive le(s) bouton(s) DOM directement (pas d'état React
+  //  ici) ; on expose la même garantie via un flag global + un helper qui
+  //  encapsule l'appel réseau, à consommer par chaque composant de
+  //  formulaire via <Button loading={isSubmitting}>.
+  // ══════════════════════════════════════════════════════════
+  isSubmitting: false,
+
+  // withSubmitLock(fn) : verrouille isSubmitting, exécute fn(), déverrouille
+  // systématiquement (même en cas d'erreur). Si une soumission est déjà en
+  // cours, affiche un toast et n'exécute pas fn() — mirrors le comportement
+  // du vanilla (`if (ST.isSubmitting) { showToast(...); return; }`).
+  withSubmitLock: async (fn) => {
+    if (get().isSubmitting) {
+      get().showToast('Une opération est déjà en cours…', 'error')
+      return
+    }
+    set({ isSubmitting: true })
+    try {
+      await fn()
+    } finally {
+      set({ isSubmitting: false })
+    }
+  },
 }))

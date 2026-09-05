@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function DemandeModal({ dept }) {
   const supabase = createClient()
-  const { closeModal, showToast } = useUiStore()
+  const { closeModal, showToast, isSubmitting, withSubmitLock } = useUiStore()
   const { submitDem, loadDemandes, params } = useDataStore()
   const profile = useAuthStore(s => s.profile)
   const produits = useDataStore(s => s.produits.filter(p => p.dept === dept))
@@ -58,7 +58,7 @@ export default function DemandeModal({ dept }) {
     <Modal title={`📋 Nouvelle Demande — ${dept}`} onClose={closeModal} footer={
       <>
         <Button variant="outline" onClick={closeModal}>Annuler</Button>
-        <Button loading={loading} onClick={handleSubmit}>✓ Soumettre</Button>
+       <Button loading={busy} disabled={busy} onClick={handleSubmit}>✓ Soumettre</Button>
       </>
     }>
       <div className="form-row">

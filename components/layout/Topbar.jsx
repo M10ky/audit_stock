@@ -15,6 +15,8 @@ const TITLES = {
   '/demandes/fin':   'Demandes — Finance',
   '/alertes/it':     'Alertes stock — IT',
   '/alertes/fin':    'Alertes stock — Finance',
+  '/prets/it':       'Prêts — Informatique',
+  '/prets/fin':      'Prêts — Finance',
   '/historique':     'Historique des mouvements',
   '/rapports':       'Rapports & statistiques',
   '/amortissement':  'Amortissement linéaire',

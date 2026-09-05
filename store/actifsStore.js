@@ -137,6 +137,30 @@ export const useActifsStore = create((set, get) => ({
   //  ici — pas dans DemandesTable — pour qu'un futur flux de Sortie
   //  manuelle réutilise la même règle sans la dupliquer.
   // ══════════════════════════════════════════════════════════
+ // Attribution manuelle — le validateur a déjà choisi les actifs (cf.
+  // DemandeAttributionModal). Mirrors js/app.js submitDemAttribution().
+  // Contrairement à attribuerDemandeAmortissable (FIFO auto, conservée
+  // ci-dessous pour compatibilité), ici la sélection vient de l'appelant.
+  attribuerDemandeManuelle: async (supabase, { demande, produit, dept, dest, actifIds }, profile) => {
+    const mvtPrefix = dept === 'IT' ? 'MVT-IT' : 'MVT-FIN'
+    const mvtIds = actifIds.map(() => genId(mvtPrefix))
+
+    const { error } = await supabase.rpc('rpc_attribuer_demande', {
+      p_dem_id:     demande.id,
+      p_produit_id: produit.id,
+      p_actif_ids:  actifIds,
+      p_dept:       dept,
+      p_dest:       dest || null,
+      p_mvt_ids:    mvtIds,
+      p_user_name:  profile?.name || 'Système',
+      p_user_id:    profile?.id || null,
+    })
+    if (error) return { error }
+
+    await get().loadActifs(supabase)
+    return { ok: true, actifIds }
+  },
+
   attribuerDemandeAmortissable: async (supabase, { demande, produit, dept, dest }, profile) => {
     await get().loadActifs(supabase)
     const disponibles = get().actifs
