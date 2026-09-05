@@ -33,6 +33,12 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const [empl, setEmpl]       = useState('')
   const [obs, setObs]         = useState('')
   const [refDoc, setRefDoc]   = useState('')
+  // Numéros de série manuels (optionnel) — un numéro par ligne, dans l'ordre
+  // de saisie. Transmis à createActifUnits(manualSerials), qui pour chaque
+  // unité utilise la ligne correspondante si elle est non vide, sinon
+  // retombe sur la nomenclature CNTO-… auto-générée (cf. actifsStore.js,
+  // déjà prévu côté store mais jamais alimenté depuis ce formulaire).
+  const [manualSerialsText, setManualSerialsText] = useState('')
   const [fournisseur, setFournisseur] = useState('')
   const [loading, setLoading] = useState(false)
   const busy = loading || isSubmitting
@@ -75,8 +81,16 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     // AVANT toute écriture sur mouvements/produits. Si ça échoue, rien
     // d'autre n'a été touché — pas de mouvement orphelin.
     if (isAmortEntree) {
+      // Une ligne vide ou manquante = génération auto pour l'unité
+      // correspondante (comportement déjà géré par createActifUnits,
+      // simplement jamais alimenté depuis l'UI jusqu'ici).
+      const manualSerials = manualSerialsText
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean)
       const { ok, message } = await createActifUnits(supabase, {
         prod, qty: Number(qty), mvtId, emplacement: empl, prixUnit: Number(prixUnit),
+        manualSerials,
       })
       if (!ok) { setLoading(false); return showToast('Erreur (actifs) : ' + message, 'error') }
     }
@@ -230,6 +244,24 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
             <option value="">— Sélectionner —</option>
             {destinations.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
+        </div>
+      )}
+
+      {isEntree && prod?.is_amortissable && (
+        <div className="form-group">
+          <label className="form-label">Numéros de série / N° Inventaire (optionnel)</label>
+          <textarea
+            className="form-textarea"
+            rows={Math.min(Math.max(Number(qty) || 1, 2), 6)}
+            value={manualSerialsText}
+            onChange={e => setManualSerialsText(e.target.value)}
+            placeholder={`Un numéro par ligne (${qty || 1} attendu(s))…\nLaissez vide pour générer automatiquement CNTO-…`}
+          />
+          <div className="form-hint">
+            {manualSerialsText.trim()
+              ? `${manualSerialsText.split('\n').map(s => s.trim()).filter(Boolean).length} numéro(s) saisi(s) sur ${qty || 1} unité(s) — les unités restantes seront numérotées automatiquement.`
+              : 'Laissez vide pour numéroter automatiquement toutes les unités (CNTO-…).'}
+          </div>
         </div>
       )}
 

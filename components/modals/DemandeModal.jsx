@@ -26,8 +26,17 @@ export default function DemandeModal({ dept }) {
   const [dest, setDest]       = useState('')
   const [motif, setMotif]     = useState('')
   const [loading, setLoading] = useState(false)
+  // FIX régression : le footer référençait `busy` sans qu'il soit jamais
+  // déclaré → ReferenceError au rendu, modale inutilisable. Mirrors
+  // MouvementModal.jsx / PretModal.jsx : combine l'état local du bouton
+  // et le verrou global anti-double-clic.
+  const busy = loading || isSubmitting
 
-  const handleSubmit = async () => {
+  // FIX Étape H bis : withSubmitLock était importé mais jamais appliqué —
+  // le verrou global annoncé dans la fiche de passation pour cette modale
+  // n'était donc pas réellement câblé. Enveloppe maintenant tout le corps
+  // de soumission, comme sur MouvementModal/PretModal/PretsTable.
+  const handleSubmit = async () => withSubmitLock(async () => {
     if (!produit.trim()) return showToast('Produit requis', 'error')
     if (!dest)           return showToast('Veuillez sélectionner une destination', 'error')
     if (!motif.trim())   return showToast('Le motif est requis', 'error')
@@ -52,7 +61,7 @@ export default function DemandeModal({ dept }) {
     showToast('Demande soumise avec succès')
     await loadDemandes(supabase, dept)
     closeModal()
-  }
+  })
 
   return (
     <Modal title={`📋 Nouvelle Demande — ${dept}`} onClose={closeModal} footer={
