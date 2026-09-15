@@ -1,12 +1,13 @@
 'use client'
 import { useEffect } from 'react'
-import { IconArrowsExchange, IconArrowDownCircle, IconArrowUpCircle } from '@tabler/icons-react'
+import { IconArrowsExchange, IconArrowDownCircle, IconArrowUpCircle, IconDownload } from '@tabler/icons-react'
 import { useDataStore }    from '@/store/dataStore'
 import { useUiStore }      from '@/store/uiStore'
 import { useDateFilter }   from '@/hooks/useDateFilter'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
-import { fmt, fmtDTSplit } from '@/lib/helpers'
+import { fmt, fmtDT, fmtDTSplit } from '@/lib/helpers'
+import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
 import TypeBadge           from '@/components/ui/badges/TypeBadge'
@@ -31,9 +32,39 @@ export default function MouvementsTable({ dept }) {
   const totS         = filtered.filter(m => m.type === 'Sortie').reduce((s, m) => s + m.qty, 0)
   const q            = filterState.query
 
+  // Règle métier (js/export.js exportMouvementsCSV) : export de la liste
+  // filtrée courante (période de dates + query/type). La colonne
+  // « Prix unitaire » n'est jamais lue d'un champ catalogue : elle est
+  // recalculée = valeur totale / quantité (arrondie), comme à l'écran.
+  const handleExport = () => {
+    const headers = [
+      'ID', 'Date & Heure', 'Type', 'Produit', 'N° Actif (CNTO)', 'Quantité',
+      'Prix unitaire (MGA)', 'Valeur totale (MGA)', 'Emplacement', 'Destination',
+      'Fournisseur', 'Réf. Document', 'Agent', 'Observation',
+    ]
+    const rows = filtered.map(m => [
+      m.id,
+      fmtDT(m.created_at || m.date),
+      m.type,
+      m.produit_nom,
+      m.actif_id || '',                                        // ← traçabilité individuelle
+      m.qty,
+      m.qty > 0 ? Math.round((m.valeur || 0) / m.qty) : 0,     // ← prix unitaire calculé
+      m.valeur || 0,
+      m.emplacement || '',
+      m.destination || '',
+      m.fournisseur || '',
+      m.ref_document || '',
+      m.user_name,
+      m.observation || '',
+    ])
+    exportToCSV(rows, headers, `mouvements_${dept.toLowerCase()}_${todayFileDate()}.csv`)
+  }
+
   return (
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button variant="outline" icon={IconDownload} onClick={handleExport}>CSV</Button>
         <Button variant="outline" icon={IconArrowDownCircle} onClick={() => openModal('entree', { dept })}>
           Entrée
         </Button>

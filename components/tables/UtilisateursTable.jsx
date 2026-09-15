@@ -1,11 +1,13 @@
 'use client'
 import { useEffect, useMemo } from 'react'
-import { IconUsers, IconShieldCheck } from '@tabler/icons-react'
+import { IconUsers, IconShieldCheck, IconDownload } from '@tabler/icons-react'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { createClient } from '@/lib/supabase/client'
 import { fmtDT } from '@/lib/helpers'
+import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { getPermissions } from '@/lib/permissions'
+import Button from '@/components/ui/Button'
 
 // Colonnes de la matrice — un rôle par colonne, calculé via getPermissions()
 // plutôt que recopié à la main : tout futur changement de RBAC (lib/permissions.js)
@@ -86,8 +88,29 @@ export default function UtilisateursTable() {
     showToast(p.is_active ? `${p.name} désactivé` : `${p.name} activé`)
   }
 
+  // Règle métier (js/export.js exportUtilisateursCSV) : export sans filtre de
+  // la liste complète des profils ; ouverture réservée à l'administrateur
+  // (gating page canManUsers). Département 'both' → « IT + Finance » ;
+  // is_active traduit en Actif/Inactif.
+  const handleExport = () => {
+    const headers = ['Nom', 'Email', 'Rôle', 'Département', 'Statut', 'Créé le']
+    const rows = allProfiles.map(u => [
+      u.name,
+      u.email || '',
+      u.role,
+      u.dept === 'both' ? 'IT + Finance' : u.dept,
+      u.is_active ? 'Actif' : 'Inactif',
+      fmtDT(u.created_at),
+    ])
+    exportToCSV(rows, headers, `utilisateurs_${todayFileDate()}.csv`)
+  }
+
   return (
     <>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button variant="outline" icon={IconDownload} onClick={handleExport}>CSV</Button>
+      </div>
+
       <div className="card" style={{ marginBottom: 12, background: 'var(--indigo-l)', borderColor: '#c7d2fe' }}>
         <div style={{ padding: '13px 16px', fontSize: 12, color: 'var(--indigo)' }}>
           <IconShieldCheck size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />

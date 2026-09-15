@@ -8,6 +8,11 @@ export default function SearchResultItem({
   return (
     <div
       className="search-result-item"
+      // FIX recherche : data-result était passé en prop mais jamais rendu dans
+      // le DOM — querySelectorAll('.search-result-item[data-result]') de
+      // SearchOverlay ne matchait donc rien et la navigation clavier ↑↓/Entrée
+      // était inopérante. L'attribut est émis ici, sur tous les items.
+      data-result
       style={selected ? { background: 'var(--teal-xl)', outline: '2px solid var(--teal)', outlineOffset: -2 } : {}}
       onClick={onClick}
     >

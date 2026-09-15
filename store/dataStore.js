@@ -1,4 +1,3 @@
-// TODO: Phase 1 — Zustand store: produits, mouvements, demandes, params
 import { create } from 'zustand'
 import { genId } from '@/lib/helpers'
 

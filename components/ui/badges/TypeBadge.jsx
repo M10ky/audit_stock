@@ -1,4 +1,3 @@
-// // TODO: Phase 3 — TypeBadge
 // export default function TypeBadge() { return null }
 
 import { IconArrowDown, IconArrowUp } from '@tabler/icons-react'

@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation'
 import {
   IconSearch, IconPackage, IconArrowsExchange,
   IconClipboardList, IconDeviceLaptop, IconCash, IconX,
+  IconDevices, IconTransfer,
 } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
 import { useSearch, highlight } from '@/hooks/useSearch'
+import { getActifNumero } from '@/store/pretsStore'
 import { fmtDate } from '@/lib/helpers'
 import SearchResultItem from './SearchResultItem'
 
@@ -15,10 +17,25 @@ const FILTERS = [
   { id: 'produits',   label: 'Produits',    icon: <IconPackage size={12} /> },
   { id: 'mouvements', label: 'Mouvements',  icon: <IconArrowsExchange size={12} /> },
   { id: 'demandes',   label: 'Demandes',    icon: <IconClipboardList size={12} /> },
+  { id: 'actifs',     label: 'Actifs',      icon: <IconDevices size={12} /> },
+  { id: 'prets',      label: 'Prêts',       icon: <IconTransfer size={12} /> },
   'sep',
   { id: 'it',         label: 'IT',          icon: <IconDeviceLaptop size={12} /> },
   { id: 'fin',        label: 'Finance',     icon: <IconCash size={12} /> },
 ]
+
+// Mirrors js/app.js runSearch() : mapping statut → couleur (valeurs vanilla).
+const ACTIF_STATUT_COLORS = {
+  'En service':   { c: '#16a34a', bg: '#dcfce7' },
+  'En prêt':      { c: '#1d4ed8', bg: '#dbeafe' },
+  'Hors service': { c: '#d97706', bg: '#fef3c7' },
+  'Réformé':      { c: '#94a3b8', bg: '#f1f5f9' },
+}
+const PRET_STATUT_COLORS = {
+  'En cours':  { c: '#1d4ed8', bg: '#dbeafe' },
+  'En retard': { c: '#dc2626', bg: '#fee2e2' },
+  'Retourné':  { c: '#16a34a', bg: '#dcfce7' },
+}
 
 function getStockStatus(p) {
   if (p.stock === 0)         return { label: 'Rupture', color: '#dc2626', bg: '#fef2f2' }
@@ -48,7 +65,7 @@ export default function SearchOverlay() {
 
   const { runSearch } = useSearch()
 
-  const [results, setResults] = useState({ produits: [], mouvements: [], demandes: [], total: 0 })
+  const [results, setResults] = useState({ produits: [], mouvements: [], demandes: [], actifs: [], prets: [], total: 0 })
   const [selectedIdx, setSelectedIdx] = useState(-1)
   const inputRef    = useRef(null)
   const debounceRef = useRef(null)
@@ -71,6 +88,8 @@ export default function SearchOverlay() {
       totalItems.current = Math.min(r.produits.length, 8)
         + Math.min(r.mouvements.length, 6)
         + Math.min(r.demandes.length, 6)
+        + Math.min(r.actifs.length, 6)
+        + Math.min(r.prets.length, 6)
       setSelectedIdx(-1)
     }, 120)
     return () => clearTimeout(debounceRef.current)
@@ -115,6 +134,8 @@ export default function SearchOverlay() {
   const prods = results.produits.slice(0, 8)
   const mvts  = results.mouvements.slice(0, 6)
   const dems  = results.demandes.slice(0, 6)
+  const acts  = results.actifs.slice(0, 6)
+  const prets = results.prets.slice(0, 6)
   const isEmpty = results.total === 0
 
   // Flat index counters for keyboard selection
@@ -223,7 +244,6 @@ export default function SearchOverlay() {
                 return (
                   <SearchResultItem
                     key={p.id}
-                    data-result
                     iconEl={<IconPackage size={15} style={{ color: dColor }} />}
                     iconBg={dBg}
                     title={p.nom}
@@ -263,7 +283,6 @@ export default function SearchOverlay() {
                 return (
                   <SearchResultItem
                     key={m.id}
-                    data-result
                     iconEl={<IconArrowsExchange size={15} style={{ color: tc }} />}
                     iconBg={tb}
                     title={m.produit_nom}
@@ -303,7 +322,6 @@ export default function SearchOverlay() {
                 return (
                   <SearchResultItem
                     key={d.id}
-                    data-result
                     iconEl={<IconClipboardList size={15} style={{ color: sc }} />}
                     iconBg={sb}
                     title={d.produit}
@@ -320,6 +338,85 @@ export default function SearchOverlay() {
               {results.demandes.length > 6 && (
                 <div style={{ padding: '6px 16px', fontSize: 11, color: 'var(--text3)', background: 'var(--bg)' }}>
                   … et {results.demandes.length - 6} autre(s)
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Actifs individuels ── */}
+          {acts.length > 0 && (
+            <>
+              <div style={SH_LABEL}>
+                <IconDevices size={12} style={{ color: '#6366f1' }} />
+                Actifs individuels
+                <span style={{ background: 'var(--teal)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 9 }}>
+                  {results.actifs.length}
+                </span>
+              </div>
+              {acts.map(a => {
+                const idx    = nextIdx()
+                const dc     = a.dept === 'IT' ? '#4f46e5' : '#10b981'
+                const dbg    = a.dept === 'IT' ? '#eef2ff' : '#f0fdf4'
+                const { c: sc = '#64748b', bg: sbg = '#f1f5f9' } = ACTIF_STATUT_COLORS[a.statut] || {}
+                const tab = a.dept === 'IT' ? 'it' : 'fin'
+                return (
+                  <SearchResultItem
+                    key={a.id}
+                    iconEl={<IconDevices size={15} style={{ color: dc }} />}
+                    iconBg={dbg}
+                    title={`${a.id} · ${a.produit_nom || '—'}`}
+                    sub={`${a.categorie || ''} · ${a.emplacement || '—'} · ${a.statut || ''}`}
+                    rightBadgeLabel={a.statut}
+                    rightBadgeColor={sc}
+                    rightBadgeBg={sbg}
+                    query={q}
+                    selected={selectedIdx === idx}
+                    onClick={() => goTo(`/actifs/${tab}`, `actifs-${tab}`, a.id)}
+                  />
+                )
+              })}
+              {results.actifs.length > 6 && (
+                <div style={{ padding: '6px 16px', fontSize: 11, color: 'var(--text3)', background: 'var(--bg)' }}>
+                  … et {results.actifs.length - 6} autre(s)
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Prêts ── */}
+          {prets.length > 0 && (
+            <>
+              <div style={SH_LABEL}>
+                <IconTransfer size={12} style={{ color: '#f59e0b' }} />
+                Prêts
+                <span style={{ background: 'var(--teal)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 9 }}>
+                  {results.prets.length}
+                </span>
+              </div>
+              {prets.map(p => {
+                const idx      = nextIdx()
+                const actifNum = getActifNumero(p)
+                const { c: sc = '#64748b', bg: sbg = '#f1f5f9' } = PRET_STATUT_COLORS[p.statut] || {}
+                const tab = p.dept === 'IT' ? 'it' : 'fin'
+                return (
+                  <SearchResultItem
+                    key={p.id}
+                    iconEl={<IconTransfer size={15} style={{ color: sc }} />}
+                    iconBg={sbg}
+                    title={`${actifNum || '—'} · ${p.produit_nom || '—'}`}
+                    sub={`${p.emprunteur || '—'} · retour prévu ${p.date_retour_prevue ? fmtDate(p.date_retour_prevue) : '—'}`}
+                    rightBadgeLabel={p.statut}
+                    rightBadgeColor={sc}
+                    rightBadgeBg={sbg}
+                    query={q}
+                    selected={selectedIdx === idx}
+                    onClick={() => goTo(`/prets/${tab}`, `prets-${tab}`, actifNum || '')}
+                  />
+                )
+              })}
+              {results.prets.length > 6 && (
+                <div style={{ padding: '6px 16px', fontSize: 11, color: 'var(--text3)', background: 'var(--bg)' }}>
+                  … et {results.prets.length - 6} autre(s)
                 </div>
               )}
             </>

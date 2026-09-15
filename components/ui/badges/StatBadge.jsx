@@ -1,4 +1,3 @@
-// // TODO: Phase 3 — StatBadge
 // export default function StatBadge() { return null }
 
 import { IconCircleCheck, IconCircleX, IconClock } from '@tabler/icons-react'

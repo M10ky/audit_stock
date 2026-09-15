@@ -1,4 +1,3 @@
-// TODO: Phase 1 — Zustand store: modal, toast, search{}, dateFrom, dateTo
 import { create } from 'zustand'
 
 /**

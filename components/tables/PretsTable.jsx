@@ -1,14 +1,15 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { IconTransfer, IconPlus, IconDownload, IconEye } from '@tabler/icons-react'
 import { usePretsStore, STATUS_PRET, TRANSITIONS_ACTIF_UNUSED, isValidTransition, joursRestants, getActifNumero } from '@/store/pretsStore'
 import { useActifsStore } from '@/store/actifsStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient } from '@/lib/supabase/client'
 import { fmtDate } from '@/lib/helpers'
-import { matchesQuery, highlight } from '@/hooks/useSearch'
+import { highlight } from '@/hooks/useSearch'
 import Button from '@/components/ui/Button'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 
@@ -41,13 +42,15 @@ export default function PretsTable({ dept }) {
   const isLecteur = perm.isLecteur
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 
-  const [query, setQuery] = useState('')
+  // Query inline alimentée par la recherche globale (Ctrl+K → page),
+  // mirrors js/app.js runSearch() → setInlineQuery(produit_id).
+  const pageKey = `prets-${dept === 'IT' ? 'it' : 'fin'}`
+  const { filterState, setFilterState, applyFilters } = useInlineFilter(pageKey)
+  const q = filterState.query
 
   useEffect(() => { loadPrets(supabase) }, []) // eslint-disable-line
 
-  const filtered = prets.filter(p =>
-    matchesQuery([getActifNumero(p), p.emprunteur, p.produit_nom, p.motif, p.notes, p.statut, p.id], query)
-  )
+  const filtered = applyFilters(prets, 'pret')
 
   const enCours   = prets.filter(p => p.statut === STATUS_PRET.EN_COURS)
   const enRetard  = prets.filter(p => p.statut === STATUS_PRET.EN_RETARD)
@@ -110,9 +113,14 @@ export default function PretsTable({ dept }) {
     })
   }
   const handleExport = () => {
-    const headers = ['ID Prêt', 'N° Actif (CNTO)', 'Produit', 'Emprunteur', 'Valideur', 'Date début', 'Retour prévu', 'Retour effectif', 'Notes', 'Motif', 'Statut']
+    // Parité vanilla (js/prets.js exportPretsCSV) : 13 colonnes — ajout de
+    // « ID Produit catalogue » (produit_id) et « Département » manquants au
+    // précédent export, et libellé « Notes / Destination » aligné sur le
+    // Vanilla. Dates au format court (fmtDate).
+    const headers = ['ID Prêt', 'N° Actif (CNTO)', 'ID Produit catalogue', 'Produit', 'Département', 'Emprunteur', 'Valideur', 'Date début', 'Retour prévu', 'Retour effectif', 'Notes / Destination', 'Motif', 'Statut']
     const rows = prets.map(p => [
-      p.id, getActifNumero(p) || '', p.produit_nom || '', p.emprunteur || '', p.valideur || '',
+      p.id, getActifNumero(p) || '', p.produit_id || '', p.produit_nom || '', p.dept,
+      p.emprunteur || '', p.valideur || '',
       fmtDate(p.date_debut || p.created_at), p.date_retour_prevue || '',
       p.date_retour_reelle ? fmtDate(p.date_retour_reelle) : '', p.notes || '', p.motif || '', p.statut,
     ])
@@ -155,8 +163,8 @@ export default function PretsTable({ dept }) {
       <div className="inline-search" style={{ marginBottom: 12, maxWidth: 420 }}>
         <input
           placeholder="Rechercher (n° actif, emprunteur, produit, motif…)"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
+          value={q}
+          onChange={e => setFilterState(s => ({ ...s, query: e.target.value }))}
         />
       </div>
 
@@ -190,12 +198,12 @@ export default function PretsTable({ dept }) {
                 return (
                   <tr key={p.id} style={p.statut === STATUS_PRET.EN_RETARD ? { background: '#fff5f5' } : p.statut === STATUS_PRET.PERDU ? { background: 'var(--purple-l)' } : {}}>
                     <td className="cell-name">
-                      <span dangerouslySetInnerHTML={highlight(p.produit_nom || '—', query)} /><br />
+                      <span dangerouslySetInnerHTML={highlight(p.produit_nom || '—', q)} /><br />
                       <code className="cell-mono" style={{ fontSize: 11 }}>
-                        <span dangerouslySetInnerHTML={highlight(actifNum || '—', query)} />
+                        <span dangerouslySetInnerHTML={highlight(actifNum || '—', q)} />
                       </code>
                     </td>
-                    <td style={{ fontWeight: 500 }}><span dangerouslySetInnerHTML={highlight(p.emprunteur || '—', query)} /></td>
+                    <td style={{ fontWeight: 500 }}><span dangerouslySetInnerHTML={highlight(p.emprunteur || '—', q)} /></td>
                     <td className="text-muted">{fmtDate(p.date_debut || p.created_at)}</td>
                     <td style={{ fontWeight: 600 }}>{p.date_retour_prevue ? fmtDate(p.date_retour_prevue) : '—'}</td>
                     <td style={{ color: delaiColor, fontWeight: 700, fontSize: 11 }}>{delaiLabel}</td>

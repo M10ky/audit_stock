@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import {
   IconDevices, IconDownload, IconEdit, IconHistory, IconMapPin,
   IconRotate, IconAlertTriangle, IconX, IconArrowBackUp,
@@ -9,9 +9,10 @@ import { useActifsStore } from '@/store/actifsStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, fmtDate } from '@/lib/helpers'
-import { matchesQuery, highlight } from '@/hooks/useSearch'
+import { highlight } from '@/hooks/useSearch'
 import {
   STATUS_ACTIF, TRANSITIONS_ACTIF, isValidTransition,
   calcVNCActif, amortPctActif,
@@ -39,13 +40,15 @@ export default function ActifsTable({ dept }) {
   const canM  = dept === 'IT' ? perm.canManIT : perm.canManFin
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 
-  const [query, setQuery] = useState('')
+  // Query inline alimentée par la recherche globale (Ctrl+K → page),
+  // mirrors js/app.js runSearch() → setInlineQuery(a.id).
+  const pageKey = `actifs-${dept === 'IT' ? 'it' : 'fin'}`
+  const { filterState, setFilterState, applyFilters } = useInlineFilter(pageKey)
+  const q = filterState.query
 
   useEffect(() => { loadActifs(supabase) }, []) // eslint-disable-line
 
-  const filtered = actifs.filter(a =>
-    matchesQuery([a.id, a.produit_nom, a.categorie, a.emplacement, a.statut, a.mouvement_entree_id], query)
-  )
+  const filtered = applyFilters(actifs, 'actif')
 
   const nbSv = actifs.filter(a => a.statut === STATUS_ACTIF.EN_SERVICE).length
   const nbPr = actifs.filter(a => a.statut === STATUS_ACTIF.EN_PRET).length
@@ -171,8 +174,8 @@ export default function ActifsTable({ dept }) {
       <div className="inline-search" style={{ marginBottom: 12, maxWidth: 420 }}>
         <input
           placeholder="Rechercher (numéro de série, produit, emplacement, statut…)"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
+          value={q}
+          onChange={e => setFilterState(s => ({ ...s, query: e.target.value }))}
         />
       </div>
 
@@ -203,8 +206,8 @@ export default function ActifsTable({ dept }) {
                 const pct = amortPctActif(a)
                 return (
                   <tr key={a.id} className={a.statut === STATUS_ACTIF.REFORME ? 'alerte-row' : ''}>
-                    <td className="cell-name"><span dangerouslySetInnerHTML={highlight(a.produit_nom, query)} /></td>
-                    <td className="cell-mono"><span dangerouslySetInnerHTML={highlight(a.id, query)} /></td>
+                    <td className="cell-name"><span dangerouslySetInnerHTML={highlight(a.produit_nom, q)} /></td>
+                    <td className="cell-mono"><span dangerouslySetInnerHTML={highlight(a.id, q)} /></td>
                     <td><span className="badge" style={{ background: 'var(--bg)', color: 'var(--text2)' }}>{a.categorie}</span></td>
                     <td>{a.emplacement
                       ? <span className="badge" style={{ background: '#dbeafe', color: '#1e40af' }}>{a.emplacement}</span>

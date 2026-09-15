@@ -1,4 +1,3 @@
-// TODO: Phase 1 — Zustand store: user, profile, allProfiles
 import { create } from 'zustand'
 
 /**

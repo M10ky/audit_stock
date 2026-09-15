@@ -1,14 +1,14 @@
 // 'use client'
-// // TODO: Phase 4 — AlertesTable
 // export default function AlertesTable() { return null }
 
 'use client'
-import { IconBellRinging, IconPackage } from '@tabler/icons-react'
+import { IconBellRinging, IconPackage, IconDownload } from '@tabler/icons-react'
 import { useDataStore } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
 import { fmtDate } from '@/lib/helpers'
+import { exportToCSV, todayFileDate } from '@/lib/csv'
 import Button from '@/components/ui/Button'
-import StatusTag from '@/components/ui/badges/StatusTag'
+import StatusTag, { getStockStatus } from '@/components/ui/badges/StatusTag'
 
 export default function AlertesTable({ dept }) {
   const produits = useDataStore(s => s.produits.filter(p => p.dept === dept && p.stock <= p.seuil))
@@ -17,20 +17,34 @@ export default function AlertesTable({ dept }) {
 
   const sorted = [...produits].sort((a, b) => a.stock - b.stock)
 
-  if (sorted.length === 0) {
-    return (
-      <div className="card">
-        <div className="empty-state">
-          <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
-          <p style={{ fontWeight: 700, color: 'var(--text)' }}>Aucune alerte active</p>
-          <p>Tous les stocks sont au-dessus de leurs seuils critiques</p>
-        </div>
-      </div>
-    )
+  // Règle métier (js/export.js exportAlertesCSV) : export des produits sous
+  // le seuil critique, triés par stock croissant (aucun filtre inline — la
+  // page Alertes n'a pas de barre de recherche). « Dernière MAJ » = date seule.
+  const handleExport = () => {
+    const headers = ['Produit', 'Catégorie', 'Emplacement', 'Stock actuel', 'Seuil', 'Statut', 'Dernière MAJ']
+    const rows = sorted.map(p => [
+      p.nom, p.categorie, p.emplacement || '',
+      p.stock, p.seuil, getStockStatus(p.stock, p.seuil), fmtDate(p.updated_at),
+    ])
+    exportToCSV(rows, headers, `alertes_${dept.toLowerCase()}_${todayFileDate()}.csv`)
   }
 
   return (
-    <div className="card">
+    <>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button variant="outline" icon={IconDownload} onClick={handleExport}>CSV</Button>
+      </div>
+
+      {sorted.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
+            <p style={{ fontWeight: 700, color: 'var(--text)' }}>Aucune alerte active</p>
+            <p>Tous les stocks sont au-dessus de leurs seuils critiques</p>
+          </div>
+        </div>
+      ) : (
+        <div className="card">
       <div className="card-header">
         <div className="card-header-title">
           <IconBellRinging size={16} /> {sorted.length} produit(s) nécessitant un réapprovisionnement urgent
@@ -68,6 +82,8 @@ export default function AlertesTable({ dept }) {
           </tbody>
         </table>
       </div>
-    </div>
+        </div>
+      )}
+    </>
   )
 }

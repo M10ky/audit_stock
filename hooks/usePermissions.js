@@ -1,4 +1,3 @@
-// TODO: Phase correspondante — usePermissions
 'use client'
 import { useAuthStore } from '@/store/authStore'
 import { getPermissions } from '@/lib/permissions'

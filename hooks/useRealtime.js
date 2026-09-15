@@ -1,4 +1,3 @@
-// TODO: Phase correspondante — useRealtime
 'use client'
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'

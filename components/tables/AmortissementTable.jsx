@@ -14,6 +14,8 @@ import { exportToCSV, todayFileDate } from '@/lib/csv'
 import AmortBar from '@/components/ui/badges/AmortBar'
 import DeptTag from '@/components/ui/badges/DeptTag'
 import Button from '@/components/ui/Button'
+import BarChartCard from '@/components/charts/BarChartCard'
+import DoughnutChartCard from '@/components/charts/DoughnutChartCard'
 
 const KPI_COLORS = { indigo: 'var(--indigo)', green: 'var(--green)', amber: 'var(--amber)', red: 'var(--red)' }
 
@@ -69,6 +71,20 @@ export default function AmortissementTable() {
   const nbExpires = filtered.filter(a => calcVNCActif(a) === 0).length
 
   const sorted = [...filtered].sort((a, b) => (b.valeur_achat || 0) - (a.valeur_achat || 0))
+
+  // ── Charts (mirrors js/reports.js drawCharts() chart-amort / chart-amort-pie) ──
+  // chart-amort : top 8 en valeur d'acquisition, montants en millions (M MGA).
+  // chart-amort-pie : répartition sur TOUS les actifs filtrés (pas le top 8).
+  const top8     = sorted.slice(0, 8)
+  const nbFully   = filtered.filter(a => calcVNCActif(a) === 0).length
+  const nbPartial = filtered.filter(a => {
+    const pct = amortPctActif(a)
+    return pct !== null && pct > 50 && pct < 100
+  }).length
+  const nbLow     = filtered.filter(a => {
+    const pct = amortPctActif(a)
+    return pct !== null && pct <= 50
+  }).length
 
   const handleExportCSV = () => {
     const headers = [
@@ -142,6 +158,33 @@ export default function AmortissementTable() {
       </div>
 
       {sorted.length > 0 ? (
+        <>
+        <div className="chart-grid">
+          <div className="card">
+            <div className="card-header"><div className="card-header-title">VNC vs Valeur initiale — Top 8 actifs</div></div>
+            <div className="card-body">
+              <BarChartCard
+                labels={top8.map(a => (a.produit_nom || a.id).slice(0, 14))}
+                datasets={[
+                  { label: 'Valeur acquisition', data: top8.map(a => Math.round(((a.valeur_achat || 0) / 1e6) * 100) / 100), color: '#e0e7ff' },
+                  { label: 'VNC', data: top8.map(a => Math.round(((calcVNCActif(a) || 0) / 1e6) * 100) / 100), color: '#4f46e5' },
+                ]}
+                showLegend
+                tickFormat={v => v + 'M'}
+              />
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-header"><div className="card-header-title">Répartition par statut d&apos;amortissement</div></div>
+            <div className="card-body">
+              <DoughnutChartCard
+                labels={['Faible <50%', 'Partiel 50–99%', 'Totalement amorti']}
+                data={[nbLow, nbPartial, nbFully]}
+                colors={['#10b981', '#f59e0b', '#ef4444']}
+              />
+            </div>
+          </div>
+        </div>
         <div className="card">
           <div className="card-header">
             <div className="card-header-title">
@@ -218,6 +261,7 @@ export default function AmortissementTable() {
             </table>
           </div>
         </div>
+        </>
       ) : (
         <div className="card">
           <div className="empty-state">

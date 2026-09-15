@@ -1,15 +1,16 @@
 'use client'
 import { useEffect } from 'react'
-import { IconPlus, IconEdit, IconTrash, IconPackage } from '@tabler/icons-react'
+import { IconPlus, IconEdit, IconTrash, IconPackage, IconDownload } from '@tabler/icons-react'
 import { useDataStore }    from '@/store/dataStore'
 import { useUiStore }      from '@/store/uiStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
 import { fmt, getValeurStockActuel } from '@/lib/helpers'
+import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
-import StatusTag           from '@/components/ui/badges/StatusTag'
+import StatusTag, { getStockStatus } from '@/components/ui/badges/StatusTag'
 import AmortBar            from '@/components/ui/badges/AmortBar'
 import InlineSearchBar     from '@/components/search/InlineSearchBar'
 
@@ -49,6 +50,26 @@ export default function ProduitsTable({ dept }) {
     })
   }
 
+  // Règle métier (js/export.js exportProduitsCSV) : export de la liste filtrée
+  // courante uniquement (query/cat/statut). Les 4 colonnes prix/valeur ne sont
+  // ajoutées que si canSeePrix() ; la valeur stock CUMP reste vide pour les
+  // produits amortissables (valorisés dans le module Actifs, jamais ici).
+  const handleExport = () => {
+    const headers = ['ID', 'Produit', 'Catégorie', 'Département', 'Emplacement', 'Stock', 'Seuil critique', 'Statut']
+    if (showPrix) headers.push('Valeur Stock CUMP (MGA)', 'Valeur achat (MGA)', 'Date achat', 'Durée amort. (mois)')
+    const rows = filtered.map(p => {
+      const row = [p.id, p.nom, p.categorie, p.dept, p.emplacement || '', p.stock, p.seuil, getStockStatus(p.stock, p.seuil)]
+      if (showPrix) row.push(
+        p.is_amortissable ? '' : getValeurStockActuel(p, mouvementsEntrees),
+        p.valeur_achat || 0,
+        p.date_achat || '',
+        p.duree_amortissement || ''
+      )
+      return row
+    })
+    exportToCSV(rows, headers, `inventaire_${dept.toLowerCase()}_${todayFileDate()}.csv`)
+  }
+
   const colSpan = (canMan ? 1 : 0) + (showPrix ? 1 : 0) + 7
 
   return (
@@ -69,11 +90,14 @@ export default function ProduitsTable({ dept }) {
             {filtered.length} référence{filtered.length > 1 ? 's' : ''}
             {showPrix && filtered.length > 0 && ` · Valeur : ${fmt(valTotal)} MGA`}
           </div>
-          {canMan && (
-            <Button icon={IconPlus} onClick={() => openModal('add-produit', { dept })}>
-              Produit
-            </Button>
-          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="outline" icon={IconDownload} onClick={handleExport}>CSV</Button>
+            {canMan && (
+              <Button icon={IconPlus} onClick={() => openModal('add-produit', { dept })}>
+                Produit
+              </Button>
+            )}
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>

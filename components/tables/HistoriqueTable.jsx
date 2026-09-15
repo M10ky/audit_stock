@@ -1,11 +1,13 @@
 'use client'
-import { IconHistory } from '@tabler/icons-react'
+import { IconHistory, IconDownload } from '@tabler/icons-react'
 import { useDataStore }    from '@/store/dataStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useDateFilter }   from '@/hooks/useDateFilter'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
-import { fmtDTSplit }      from '@/lib/helpers'
+import { fmtDTSplit, fmtDT } from '@/lib/helpers'
+import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { highlight }       from '@/hooks/useSearch'
+import Button              from '@/components/ui/Button'
 import DeptTag   from '@/components/ui/badges/DeptTag'
 import TypeBadge from '@/components/ui/badges/TypeBadge'
 import StatBadge from '@/components/ui/badges/StatBadge'
@@ -42,8 +44,35 @@ export default function HistoriqueTable() {
   const filtered = applyFilters(allItems, 'historique')
   const q        = filterState.query
 
+  // Règle métier (js/export.js exportHistoriqueCSV) : export de la liste
+  // consolidée affichée — mouvements + demandes filtrés (dépts visibles RBAC,
+  // période de dates, query inline) et triés par date décroissante. La cellule
+  // « Emplacement / Destination » rejoint lieu = emplacement || destination.
+  const handleExport = () => {
+    const headers = [
+      'Date & Heure', 'Département', 'Catégorie', 'Type / Statut',
+      'Produit', 'Quantité', 'Emplacement / Destination', 'Acteur', 'Détail',
+    ]
+    const rows = filtered.map(h => [
+      fmtDT(h.created_at),
+      h.dept,
+      h.src,
+      h.label,
+      h.produit || '',
+      h.qty || '',
+      h.lieu || '',
+      h.actor,
+      h.detail || '',
+    ])
+    exportToCSV(rows, headers, `historique_${todayFileDate()}.csv`)
+  }
+
   return (
     <>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button variant="outline" icon={IconDownload} onClick={handleExport}>CSV</Button>
+      </div>
+
       <InlineSearchBar
         state={filterState}
         onChange={setFilterState}

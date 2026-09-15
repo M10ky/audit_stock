@@ -1,5 +1,4 @@
 // 'use client'
-// // TODO: Phase 5 — DemandeModal
 // export default function DemandeModal() { return null }
 
 'use client'
@@ -16,7 +15,9 @@ export default function DemandeModal({ dept }) {
   const { closeModal, showToast, isSubmitting, withSubmitLock } = useUiStore()
   const { submitDem, loadDemandes, params } = useDataStore()
   const profile = useAuthStore(s => s.profile)
-  const produits = useDataStore(s => s.produits.filter(p => p.dept === dept))
+  // ← Mirrors js/stock.js renderModal() : le datalist n'expose que les produits
+  // ACTIFS (isActif = actif !== false) — pas de demande sur un produit désactivé.
+  const produits = useDataStore(s => s.produits.filter(p => p.dept === dept && p.actif !== false))
   const destinations = params.destinations || []
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 

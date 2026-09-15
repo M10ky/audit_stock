@@ -1,13 +1,14 @@
 'use client'
 import { useEffect } from 'react'
-import { IconClipboardList, IconPlus, IconCheck, IconX, IconClock } from '@tabler/icons-react'
+import { IconClipboardList, IconPlus, IconCheck, IconX, IconClock, IconDownload } from '@tabler/icons-react'
 import { useDataStore }    from '@/store/dataStore'
 import { useAuthStore }    from '@/store/authStore'
 import { useUiStore }      from '@/store/uiStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
-import { fmtDTSplit, genId } from '@/lib/helpers'
+import { fmtDTSplit, fmtDT, genId } from '@/lib/helpers'
+import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { useActifsStore } from '@/store/actifsStore'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
@@ -39,6 +40,30 @@ export default function DemandesTable({ dept }) {
   const filtered  = applyFilters(demandes, 'demande')
   const enAttente = filtered.filter(d => d.statut === 'En attente').length
   const q         = filterState.query
+
+  // Règle métier (js/export.js exportDemandesCSV) : export de la liste filtrée
+  // courante (query/urgence/statut). L'urgence définit le défaut « Normale »
+  // quand le champ est vide, et « Mis à jour » reprend fmtDT(updated_at).
+  const handleExport = () => {
+    const headers = [
+      'ID', 'Date & Heure', 'Demandeur', 'Produit', 'Quantité',
+      'Urgence', 'Destination', 'Motif', 'Statut', 'Mis à jour', 'Validé par',
+    ]
+    const rows = filtered.map(d => [
+      d.id,
+      fmtDT(d.created_at || d.date),
+      d.demandeur,
+      d.produit,
+      d.qty,
+      d.urgence || 'Normale',
+      d.dest || '',
+      d.motif || '',
+      d.statut,
+      fmtDT(d.updated_at),
+      d.valideur || '',
+    ])
+    exportToCSV(rows, headers, `demandes_${dept.toLowerCase()}_${todayFileDate()}.csv`)
+  }
 
   const handleValid = (d, action) => withSubmitLock(async () => {
     if (action === 'Refusé') {
@@ -111,7 +136,8 @@ if (prod.is_amortissable) {
 
   return (
     <>
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button variant="outline" icon={IconDownload} onClick={handleExport}>CSV</Button>
         <Button
           icon={IconPlus}
           style={{ background: color, borderColor: color }}

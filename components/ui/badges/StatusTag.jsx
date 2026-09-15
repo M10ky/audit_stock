@@ -1,4 +1,3 @@
-// // TODO: Phase 3 — StatusTag
 // export default function StatusTag() { return null }
 
 import { IconCircleCheck, IconAlertTriangle, IconCircleX } from '@tabler/icons-react'

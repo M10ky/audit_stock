@@ -3,6 +3,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useUiStore } from '@/store/uiStore'
 import { useDataStore } from '@/store/dataStore'
+import { usePretsStore } from '@/store/pretsStore'
 import { fmtDTSplit, fmt } from '@/lib/helpers'
 import { getHistoriqueActif } from '@/lib/actifs'
 import ActifStatutBadge from '@/components/ui/badges/ActifStatutBadge'
@@ -11,8 +12,8 @@ import TypeBadge from '@/components/ui/badges/TypeBadge'
 export default function ActifHistoriqueModal({ actif }) {
   const { closeModal } = useUiStore()
   const mouvements = useDataStore(s => s.mouvements)
-  // TODO Étape F : passer les vrais prêts une fois le module disponible.
-  const hist = getHistoriqueActif(actif, mouvements, [])
+  const prets = usePretsStore(s => s.prets)
+  const hist = getHistoriqueActif(actif, mouvements, prets)
 
   const badgeFor = (h) => {
     if (h.kind === 'pret') {

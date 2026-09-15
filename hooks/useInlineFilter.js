@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useUiStore } from '@/store/uiStore'
 import { matchesQuery } from '@/hooks/useSearch'
+import { getActifNumero } from '@/store/pretsStore'
 
 function getStockStatut(p) {
   if (p.stock === 0)      return 'Rupture'
@@ -52,6 +53,16 @@ export function useInlineFilter(pageKey) {
           break
         case 'historique':
           if (q && !matchesQuery([item.produit, item.actor, item.detail, item.lieu, item.id], q))
+            return false
+          break
+        case 'actif':
+          // Mirrors ActifsTable : mêmes champs que le filtre local d'origine.
+          if (q && !matchesQuery([item.id, item.produit_nom, item.categorie, item.emplacement, item.statut, item.mouvement_entree_id], q))
+            return false
+          break
+        case 'pret':
+          // Mirrors PretsTable : mêmes champs que le filtre local d'origine.
+          if (q && !matchesQuery([getActifNumero(item), item.emprunteur, item.produit_nom, item.motif, item.notes, item.statut, item.id], q))
             return false
           break
         default:
