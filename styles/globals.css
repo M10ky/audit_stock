@@ -1033,3 +1033,41 @@ mark.hl {
   display: flex; align-items: center; gap: 3px; font-weight: 500;
 }
 .ifb-reset:hover { color: var(--red); background: var(--red-l); }
+
+/* ════════════════════════════════════════════════════════════════
+   PARAMÈTRES (ParamsPanel.jsx) — absent du globals.css Next.js,
+   ces classes existaient uniquement dans le <style> inline du Vanilla.
+   ════════════════════════════════════════════════════════════════ */
+.param-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.param-title {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: 13px;
+  display: flex; align-items: center; gap: 7px;
+}
+.tag-list {
+  display: flex; flex-wrap: wrap; gap: 7px;
+  margin-bottom: 9px;
+}
+.tag-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 999px; padding: 3px 11px;
+  font-size: 12px; font-weight: 500;
+}
+.tag-item .del {
+  cursor: pointer; color: var(--text3); font-size: 14px; line-height: 1;
+}
+.tag-item .del:hover { color: var(--red); }
+.tag-add-row {
+  display: flex; gap: 8px; margin-top: 7px;
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+}
