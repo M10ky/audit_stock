@@ -38,6 +38,11 @@ export default function DashboardPage() {
   const valIT   = prodIT.reduce((s, p) => s + getValeurStockActuel(p, mouvementsEntrees), 0)
   const valFin  = prodFin.reduce((s, p) => s + getValeurStockActuel(p, mouvementsEntrees), 0)
 
+  // Mirrors js/utils.js alertsIT()/alertsFin() : les alertes n'embarquent QUE les
+  // produits actifs (un produit inactif ne génère plus d'alerte de seuil).
+  const alIT  = prodIT.filter(p => p.actif !== false && p.stock <= p.seuil).length
+  const alFin = prodFin.filter(p => p.actif !== false && p.stock <= p.seuil).length
+
   // Mirrors js/reports.js renderDashboard() (FIX KPI) : la valeur CUMP n'inclut
   // que les produits non-amortissables. On additionne la VNC des actifs
   // individuels « vivants » (En service/En prêt) pour une vision patrimoine
@@ -53,8 +58,6 @@ export default function DashboardPage() {
   const nbActifsIT  = actifs.filter(a => a.dept === 'IT'      && (a.statut === STATUS_ACTIF.EN_SERVICE || a.statut === STATUS_ACTIF.EN_PRET)).length
   const nbActifsFin = actifs.filter(a => a.dept === 'Finance' && (a.statut === STATUS_ACTIF.EN_SERVICE || a.statut === STATUS_ACTIF.EN_PRET)).length
 
-  const alIT    = prodIT.filter(p => p.stock <= p.seuil).length
-  const alFin   = prodFin.filter(p => p.stock <= p.seuil).length
   const attIT   = demandes.filter(d => d.dept === 'IT' && d.statut === 'En attente').length
   const attFin  = demandes.filter(d => d.dept === 'Finance' && d.statut === 'En attente').length
 

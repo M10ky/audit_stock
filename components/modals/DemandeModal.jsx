@@ -9,6 +9,7 @@ import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { createClient } from '@/lib/supabase/client'
+import { isActif } from '@/lib/helpers'
 
 export default function DemandeModal({ dept }) {
   const supabase = createClient()
@@ -17,7 +18,7 @@ export default function DemandeModal({ dept }) {
   const profile = useAuthStore(s => s.profile)
   // ← Mirrors js/stock.js renderModal() : le datalist n'expose que les produits
   // ACTIFS (isActif = actif !== false) — pas de demande sur un produit désactivé.
-  const produits = useDataStore(s => s.produits.filter(p => p.dept === dept && p.actif !== false))
+  const produits = useDataStore(s => s.produits.filter(p => p.dept === dept && isActif(p)))
   const destinations = params.destinations || []
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 

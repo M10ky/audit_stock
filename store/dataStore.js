@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { genId } from '@/lib/helpers'
+import { genId, getCUMPProduit } from '@/lib/helpers'
+import { useAuthStore } from '@/store/authStore'
 
 export const useDataStore = create((set, get) => ({
 
@@ -119,10 +120,53 @@ export const useDataStore = create((set, get) => ({
     return { error }
   },
 
+  // Mirrors js/stock.js createAjustementMouvement() : un ajustement manuel de
+  // stock (modale ✏ Édition) n'écrit JAMAIS produits.stock en silence — il
+  // génère un mouvement Entrée/Sortie visible dans l'historique, exactement
+  // comme une réception ou une sortie normale. Valorisé au CUMP courant du
+  // produit (jamais un champ "prix" catalogue). Réservé aux produits non
+  // amortissables — appelant unique : ProduitEditModal.
+  createAjustementMouvement: async (supabase, prod, diff) => {
+    const typeMvt = diff > 0 ? 'Entrée' : 'Sortie'
+    const qty     = Math.abs(diff)
+    const cump    = getCUMPProduit(prod.id, get().mouvementsEntrees)
+    const mvtId   = genId(prod.dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
+    const profile = useAuthStore.getState().profile
+    const { error } = await supabase.from('mouvements').insert({
+      id: mvtId,
+      date: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString(),
+      type: typeMvt,
+      produit_id: prod.id,
+      produit_nom: prod.nom,
+      qty,
+      valeur: Math.round(qty * cump),
+      dept: prod.dept,
+      user_name: profile?.name || 'Système',
+      user_id: profile?.id || null,
+      destination: '',
+      emplacement: prod.emplacement || '',
+      ref_document: '',
+      fournisseur: '',
+      observation: `Ajustement manuel de stock (${prod.stock} → ${prod.stock + diff}) via modale Édition`,
+    })
+    return { error }
+  },
+
   deleteProduit: async (supabase, id) => {
     const { error } = await supabase
       .from('produits')
       .delete()
+      .eq('id', id)
+    return { error }
+  },
+
+  // Mirrors js/stock.js toggleProductActif() : bascule actif/inactif d'un produit.
+  // updated_at horodaté (nowISO() du Vanilla) pour alimenter la colonne « Dernière MAJ».
+  toggleProductActif: async (supabase, id, actif) => {
+    const { error } = await supabase
+      .from('produits')
+      .update({ actif, updated_at: new Date().toISOString() })
       .eq('id', id)
     return { error }
   },

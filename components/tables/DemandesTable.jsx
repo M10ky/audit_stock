@@ -1,13 +1,13 @@
 'use client'
 import { useEffect } from 'react'
-import { IconClipboardList, IconPlus, IconCheck, IconX, IconClock, IconDownload } from '@tabler/icons-react'
+import { IconClipboardList, IconPlus, IconCheck, IconX, IconClock, IconDownload, IconAlertTriangle } from '@tabler/icons-react'
 import { useDataStore }    from '@/store/dataStore'
 import { useAuthStore }    from '@/store/authStore'
 import { useUiStore }      from '@/store/uiStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
-import { fmtDTSplit, fmtDT, genId } from '@/lib/helpers'
+import { fmtDTSplit, fmtDT, genId, isActif } from '@/lib/helpers'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { useActifsStore } from '@/store/actifsStore'
 import { highlight }       from '@/hooks/useSearch'
@@ -20,6 +20,7 @@ export default function DemandesTable({ dept }) {
   const supabase = createClient()
 
   const demandes            = useDataStore(s => s.demandes.filter(d => d.dept === dept))
+  const produits            = useDataStore(s => s.produits)
   const loadDemandes        = useDataStore(s => s.loadDemandes)
   const loadProduits        = useDataStore(s => s.loadProduits)
   const loadMouvements      = useDataStore(s => s.loadMouvements)
@@ -187,8 +188,16 @@ if (prod.is_amortissable) {
               {filtered.map(d => {
                 const created = fmtDTSplit(d.created_at || d.date)
                 const updated = fmtDTSplit(d.updated_at)
+                // Mirrors js/stock.js renderDemandesTable() (Étape B) : alerte
+                // visuelle quand la demande porte sur un produit désactivé —
+                // le validateur ne peut plus agir tant qu'il n'est pas réactivé.
+                const prodRef = produits.find(p =>
+                  p.nom.trim().toLowerCase() === d.produit.trim().toLowerCase() && p.dept === dept
+                )
+                const prodInactif = prodRef && !isActif(prodRef)
+                const enAttente = d.statut === 'En attente'
                 return (
-                  <tr key={d.id}>
+                  <tr key={d.id} style={prodInactif && enAttente ? { background: '#fffbeb' } : undefined}>
                     <td className="cell-mono" style={{ fontSize: 11 }}>{d.id}</td>
                     <td className="col-date">
                       <div className="dt-date">{created.date}</div>
@@ -199,6 +208,11 @@ if (prod.is_amortissable) {
                     </td>
                     <td style={{ fontWeight: 500 }}>
                       <span dangerouslySetInnerHTML={highlight(d.produit, q)} />
+                      {prodInactif && (
+                        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#f59e0b', marginTop: 2 }}>
+                          produit inactif
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontWeight: 700 }}>{d.qty}</td>
                     <td><UrgBadge urgence={d.urgence} /></td>
@@ -216,7 +230,13 @@ if (prod.is_amortissable) {
                     <td className="text-muted" style={{ fontSize: 11 }}>{d.valideur || '—'}</td>
                     {canVal && (
                       <td>
-                        {d.statut === 'En attente' ? (
+                        {enAttente && prodInactif ? (
+                          <span className="readonly-badge"
+                            style={{ color: '#f59e0b', borderColor: '#fcd34d' }}
+                            title="Produit désactivé — réactivez-le d'abord">
+                            <IconAlertTriangle size={12} /> Produit inactif
+                          </span>
+                        ) : enAttente ? (
                           <div style={{ display: 'flex', gap: 4 }}>
                             <Button size="sm" icon={IconCheck} onClick={() => handleValid(d, 'Validé')}>
                               Valider

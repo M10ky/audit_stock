@@ -50,11 +50,15 @@ export default function ParamsPanel() {
     showToast('Supprimé')
   }
 
+  // Mirrors js/settings.js renderParams() (section « Informations système ») :
+  // les 5 stats du Vanilla, dont Fournisseurs (ST.params.fournisseurs) — couleur
+  // #0ea5e9 de la source de vérité (pas de variable CSS dédiée ici).
   const stats = [
-    { label: 'Produits IT',      val: produits.filter(p => p.dept === 'IT').length,     color: 'var(--indigo)' },
-    { label: 'Produits Finance', val: produits.filter(p => p.dept === 'Finance').length, color: 'var(--green)' },
-    { label: 'Utilisateurs',     val: allProfiles.length,                                color: 'var(--amber)' },
-    { label: 'Destinations',     val: (params.destinations || []).length,                color: 'var(--teal)' },
+    { label: 'Produits IT',      val: produits.filter(p => p.dept === 'IT').length,       color: 'var(--indigo)' },
+    { label: 'Produits Finance', val: produits.filter(p => p.dept === 'Finance').length,  color: 'var(--green)' },
+    { label: 'Utilisateurs',     val: allProfiles.length,                                 color: 'var(--amber)' },
+    { label: 'Destinations',     val: (params.destinations || []).length,                 color: 'var(--teal)' },
+    { label: 'Fournisseurs',     val: (params.fournisseurs || []).length,                 color: '#0ea5e9' },
   ]
 
   return (
@@ -94,7 +98,7 @@ export default function ParamsPanel() {
 
       <div className="param-section" style={{ background: '#fafbff' }}>
         <div className="param-title"><IconInfoCircle size={16} style={{ color: '#6366f1' }} /> Informations système</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 10 }}>
           {stats.map((s, i) => (
             <div key={i} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 9, padding: 12, textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.val}</div>

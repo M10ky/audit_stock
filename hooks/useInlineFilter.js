@@ -10,7 +10,7 @@ function getStockStatut(p) {
   return 'Disponible'
 }
 
-const EMPTY = { query: '', cat: '', statut: '', type: '', urgence: '', statDem: '' }
+const EMPTY = { query: '', cat: '', statut: '', type: '', urgence: '', statDem: '', actif: '', role: '', statutUser: '' }
 
 export function useInlineFilter(pageKey) {
   const inlineQuery    = useUiStore(s => s.inlineSearch[pageKey] ?? '')
@@ -27,7 +27,7 @@ export function useInlineFilter(pageKey) {
   }, [inlineQuery]) // eslint-disable-line
 
   const applyFilters = (items, type = 'produit') => {
-    const { query, cat, statut, type: mvtType, urgence, statDem } = filterState
+    const { query, cat, statut, type: mvtType, urgence, statDem, actif, role, statutUser } = filterState
     const q = (query || '').trim()
 
     return items.filter(item => {
@@ -37,6 +37,9 @@ export function useInlineFilter(pageKey) {
             return false
           if (cat    && item.categorie !== cat)              return false
           if (statut && getStockStatut(item) !== statut)     return false
+          // ← Mirrors js/utils.js applyInlineFilters() (Étape B) : filtre actif
+          if (actif === 'true'  && item.actif === false) return false
+          if (actif === 'false' && item.actif !== false) return false
           break
         case 'mouvement':
           if (q && !matchesQuery([
@@ -64,6 +67,16 @@ export function useInlineFilter(pageKey) {
           // Mirrors PretsTable : mêmes champs que le filtre local d'origine.
           if (q && !matchesQuery([getActifNumero(item), item.emprunteur, item.produit_nom, item.motif, item.notes, item.statut, item.id], q))
             return false
+          break
+        case 'utilisateur':
+          // Mirrors js/settings.js renderUtilisateurs() : recherche sur nom,
+          // email, rôle, département ('both' → « IT Finance ») + pills rôle /
+          // statut actif-inactif. 'statutUser' : 'actif' | 'inactif'.
+          if (q && !matchesQuery([item.name, item.email || '', item.role, item.dept === 'both' ? 'IT Finance' : item.dept], q))
+            return false
+          if (role       && item.role !== role)              return false
+          if (statutUser === 'actif'   && !item.is_active)   return false
+          if (statutUser === 'inactif' &&  item.is_active)   return false
           break
         default:
           break

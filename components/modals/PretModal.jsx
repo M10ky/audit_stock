@@ -9,6 +9,7 @@ import { useUiStore } from '@/store/uiStore'
 import { usePretsStore, STATUS_PRET } from '@/store/pretsStore'
 import { STATUS_ACTIF } from '@/lib/actifs'
 import { createClient } from '@/lib/supabase/client'
+import { isActif } from '@/lib/helpers'
 
 // Mirrors js/prets.js renderModalPret()
 export default function PretModal({ dept }) {
@@ -29,7 +30,7 @@ export default function PretModal({ dept }) {
   // Exclut les actifs dont le produit parent est désactivé
   const actifsDispos = actifs.filter(a => {
     const prodParent = produits.find(p => p.id === a.produit_id)
-    return !prodParent || prodParent.actif !== false
+    return isActif(prodParent)
   })
 
   const tomorrow = new Date()

@@ -11,7 +11,9 @@ import Button from '@/components/ui/Button'
 import StatusTag, { getStockStatus } from '@/components/ui/badges/StatusTag'
 
 export default function AlertesTable({ dept }) {
-  const produits = useDataStore(s => s.produits.filter(p => p.dept === dept && p.stock <= p.seuil))
+  // Mirrors js/utils.js alertsIT()/alertsFin() : seuls les produits ACTIFS
+  // génèrent des alertes de seuil (un produit désactivé sort du périmètre).
+  const produits = useDataStore(s => s.produits.filter(p => p.dept === dept && p.actif !== false && p.stock <= p.seuil))
   const { openModal } = useUiStore()
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 

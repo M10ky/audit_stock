@@ -12,6 +12,7 @@ import { useDataStore } from '@/store/dataStore'
 import { useUiStore }   from '@/store/uiStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { createClient }   from '@/lib/supabase/client'
+import { isActif }        from '@/lib/helpers'
 import { useRouter }      from 'next/navigation'
 
 // Importation du composant DeptBanner
@@ -48,8 +49,11 @@ export default function Sidebar() {
   // Compter les alertes stock
   const produits  = useDataStore(s => s.produits)
   const demandes  = useDataStore(s => s.demandes)
-  const alertesIT  = produits.filter(pr => pr.dept === 'IT'      && pr.stock <= pr.seuil).length
-  const alertesFin = produits.filter(pr => pr.dept === 'Finance' && pr.stock <= pr.seuil).length
+  // Mirrors cntojs/js/utils.js alertsIT()/alertsFin() : les badges de la
+  // navigation n'embarquent QUE les produits actifs (règle métier ÉTAPE 1) —
+  // un produit désactivé ne génère plus d'alerte de seuil.
+  const alertesIT  = produits.filter(pr => pr.dept === 'IT'      && isActif(pr) && pr.stock <= pr.seuil).length
+  const alertesFin = produits.filter(pr => pr.dept === 'Finance' && isActif(pr) && pr.stock <= pr.seuil).length
   const demandesEnAttenteIT  = demandes.filter(d => d.dept === 'IT'      && d.statut === 'En attente').length
   const demandesEnAttenteFin = demandes.filter(d => d.dept === 'Finance' && d.statut === 'En attente').length
 
