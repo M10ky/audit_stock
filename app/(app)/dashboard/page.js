@@ -253,8 +253,8 @@ export default function DashboardPage() {
       </div>
 
       {perm.canSeeHist && (
-        <div className="chart-grid">
-          <div className="card">
+        <div className="dashboard-grid">
+          <div className="card span-2">
             <div className="card-header"><div className="card-header-title">Mouvements par jour (période)</div></div>
             <div className="card-body">
               <BarChartCard
@@ -269,52 +269,51 @@ export default function DashboardPage() {
           </div>
           <div className="card">
             <div className="card-header"><div className="card-header-title">Répartition valeur totale — Stock + Actifs (M MGA)</div></div>
-            <div className="card-body">
-              <DoughnutChartCard
-                labels={pieLabels}
-                data={pieData}
-                colors={pieColors}
-                tooltipLabel={ctx => `${ctx.label}: ${ctx.raw}M MGA`}
-              />
+            <div className="card-body" style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: 200, height: 200 }}>
+                <DoughnutChartCard
+                  labels={pieLabels}
+                  data={pieData}
+                  colors={pieColors}
+                  tooltipLabel={ctx => `${ctx.label}: ${ctx.raw}M MGA`}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {perm.canSeeHist && (
-        <div className="card">
-          <div className="card-header">
-            <div className="card-header-title"><IconActivity size={16} /> Activités récentes</div>
-          </div>
-          <div className="table-wrap" style={{ boxShadow: 'none', border: 'none' }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Date</th><th>Dépt</th><th>Type</th><th>Produit</th>
-                  <th>Qté</th><th>Emplacement</th><th>Destination</th><th>Agent</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.length === 0 && (
-                  <tr><td colSpan={8} className="empty-state">Aucun mouvement {hasFilter ? 'sur la période' : ''}</td></tr>
-                )}
-                {recent.map(m => {
-                  const { date, time } = fmtDTSplit(m.created_at || m.date)
-                  return (
-                    <tr key={m.id}>
-                      <td className="col-date"><div className="dt-date">{date}</div><div className="dt-time">{time}</div></td>
-                      <td><DeptTag dept={m.dept} /></td>
-                      <td><TypeBadge type={m.type} /></td>
-                      <td className="cell-name">{m.produit_nom}</td>
-                      <td style={{ fontWeight: 700 }}>{m.qty}</td>
-                      <td className="text-muted">{m.emplacement || '—'}</td>
-                      <td className="text-muted">{m.destination || '—'}</td>
-                      <td className="text-muted">{m.user_name}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-header-title"><IconActivity size={16} /> Activités récentes</div>
+            </div>
+            <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 260 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th><th>Dépt</th><th>Type</th><th>Produit</th>
+                    <th>Qté</th><th>Emplacement</th><th>Destination</th><th>Agent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recent.length === 0 && (
+                    <tr><td colSpan={8} className="empty-state">Aucun mouvement {hasFilter ? 'sur la période' : ''}</td></tr>
+                  )}
+                  {recent.map(m => {
+                    const { date, time } = fmtDTSplit(m.created_at || m.date)
+                    return (
+                      <tr key={m.id}>
+                        <td className="col-date"><div className="dt-date">{date}</div><div className="dt-time">{time}</div></td>
+                        <td><DeptTag dept={m.dept} /></td>
+                        <td><TypeBadge type={m.type} /></td>
+                        <td className="cell-name">{m.produit_nom}</td>
+                        <td style={{ fontWeight: 700 }}>{m.qty}</td>
+                        <td className="text-muted">{m.emplacement || '—'}</td>
+                        <td className="text-muted">{m.destination || '—'}</td>
+                        <td className="text-muted">{m.user_name}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

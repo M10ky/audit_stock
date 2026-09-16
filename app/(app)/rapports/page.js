@@ -188,26 +188,34 @@ export default function RapportsPage() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header"><div className="card-header-title">Analyse détaillée</div></div>
-        <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700 }}>Coût moyen des sorties</div>
-            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{fmt(Math.round(coutMoySortie))} MGA</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700 }}>Produits actifs / inactifs</div>
-            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{nbActifsProd} / {nbInactifsProd}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700 }}>Produits sans mouvement &gt;90j</div>
-            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, color: sansMvt.length ? 'var(--amber)' : 'var(--green)' }}>{sansMvt.length}</div>
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="kpi-icon indigo"><IconTrendingDown size={20} /></div>
+          <div className="kpi-info">
+            <div className="kpi-val">{fmt(Math.round(coutMoySortie))} MGA</div>
+            <div className="kpi-label">Coût moyen des sorties</div>
           </div>
         </div>
+        <div className="kpi">
+          <div className="kpi-icon teal"><IconPackage size={20} /></div>
+          <div className="kpi-info">
+            <div className="kpi-val">{nbActifsProd} / {nbInactifsProd}</div>
+            <div className="kpi-label">Produits actifs / inactifs</div>
+          </div>
+        </div>
+        <div className="kpi">
+          <div className={`kpi-icon ${sansMvt.length ? 'amber' : 'green'}`}><IconAlertTriangle size={20} /></div>
+          <div className="kpi-info">
+            <div className="kpi-val">{sansMvt.length}</div>
+            <div className="kpi-label">Produits sans mouvement &gt;90j</div>
+          </div>
+        </div>
+      </div>
 
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Valeur moyenne par catégorie</div>
-          <div className="table-wrap" style={{ boxShadow: 'none' }}>
+      <div className="dashboard-grid">
+        <div className="card">
+          <div className="card-header"><div className="card-header-title">Valeur moyenne par catégorie</div></div>
+          <div className="table-wrap" style={{ boxShadow: 'none', border: 'none', borderRadius: 0 }}>
             <table className="table">
               <thead><tr><th>Catégorie</th><th>Nb produits</th><th>Valeur totale</th><th>Valeur moyenne</th></tr></thead>
               <tbody>
@@ -227,9 +235,9 @@ export default function RapportsPage() {
           </div>
         </div>
 
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Produits sans mouvement depuis plus de 90 jours</div>
-          <div className="table-wrap" style={{ boxShadow: 'none' }}>
+        <div className="card">
+          <div className="card-header"><div className="card-header-title">Produits sans mouvement &gt;90j</div></div>
+          <div className="table-wrap" style={{ boxShadow: 'none', border: 'none', borderRadius: 0 }}>
             <table className="table">
               <thead><tr><th>Dépt</th><th>Produit</th><th>Catégorie</th><th>Stock</th></tr></thead>
               <tbody>
@@ -248,32 +256,32 @@ export default function RapportsPage() {
             </table>
           </div>
         </div>
+      </div>
 
-        <div style={{ padding: '16px 20px' }}>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Dernières entrées / sorties (période)</div>
-          <div className="table-wrap" style={{ boxShadow: 'none' }}>
-            <table className="table">
-              <thead><tr><th>Date & Heure</th><th>Dépt</th><th>Type</th><th>Produit</th><th>Qté</th><th>Valeur</th></tr></thead>
-              <tbody>
-                {dernieres.length === 0 && (
-                  <tr><td colSpan={6} className="empty-state">Aucun mouvement sur la période</td></tr>
-                )}
-                {dernieres.map(m => {
-                  const { date, time } = fmtDTSplit(m.created_at || m.date)
-                  return (
-                    <tr key={m.id}>
-                      <td className="col-date"><div className="dt-date">{date}</div><div className="dt-time">{time}</div></td>
-                      <td><DeptTag dept={m.dept} /></td>
-                      <td><TypeBadge type={m.type} /></td>
-                      <td style={{ fontWeight: 500 }}>{m.produit_nom}</td>
-                      <td style={{ fontWeight: 700 }}>{m.qty}</td>
-                      <td style={{ fontWeight: 700 }}>{fmt(m.valeur)} MGA</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+      <div className="card">
+        <div className="card-header"><div className="card-header-title">Dernières entrées / sorties (période)</div></div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table">
+            <thead><tr><th>Date & Heure</th><th>Dépt</th><th>Type</th><th>Produit</th><th>Qté</th><th>Valeur</th></tr></thead>
+            <tbody>
+              {dernieres.length === 0 && (
+                <tr><td colSpan={6} className="empty-state">Aucun mouvement sur la période</td></tr>
+              )}
+              {dernieres.map(m => {
+                const { date, time } = fmtDTSplit(m.created_at || m.date)
+                return (
+                  <tr key={m.id}>
+                    <td className="col-date"><div className="dt-date">{date}</div><div className="dt-time">{time}</div></td>
+                    <td><DeptTag dept={m.dept} /></td>
+                    <td><TypeBadge type={m.type} /></td>
+                    <td style={{ fontWeight: 500 }}>{m.produit_nom}</td>
+                    <td style={{ fontWeight: 700 }}>{m.qty}</td>
+                    <td style={{ fontWeight: 700 }}>{fmt(m.valeur)} MGA</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </>

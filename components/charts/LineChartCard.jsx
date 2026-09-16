@@ -46,7 +46,7 @@ export default function LineChartCard({ labels = [], data = [], color = '#4f46e5
   }
 
   return (
-    <div className="bar-chart-wrap" style={{ height: 260 }}>
+    <div className="bar-chart-wrap" style={{ height: 220 }}>
       <Line data={chartData} options={options} />
     </div>
   )

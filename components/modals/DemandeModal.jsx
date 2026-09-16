@@ -45,21 +45,30 @@ export default function DemandeModal({ dept }) {
 
     setLoading(true)
     const tsNow = new Date().toISOString()
-    const { error } = await submitDem(supabase, {
-      date: tsNow.split('T')[0],
-      created_at: tsNow,
-      demandeur: profile?.name || '',
-      demandeur_id: profile?.id,
-      produit: produit.trim(),
-      qty: Number(qty) || 1,
-      dest,
-      motif: motif.trim(),
-      dept,
-      statut: 'En attente',
-      urgence,
-    })
-    setLoading(false)
-    if (error) return showToast('Erreur: ' + error.message, 'error')
+    // FIX Étape H bis : setLoading(false) était placé après l'await mais un
+    // throw réseau (exception Supabase levée, pas un { error } retourné) le
+    // faisait sauter et gelait le bouton en loading. try/finally garantit la
+    // réinitialisation sur tous les chemins (succès, erreur retournée, erreur levée).
+    try {
+      const { error } = await submitDem(supabase, {
+        date: tsNow.split('T')[0],
+        created_at: tsNow,
+        demandeur: profile?.name || '',
+        demandeur_id: profile?.id,
+        produit: produit.trim(),
+        qty: Number(qty) || 1,
+        dest,
+        motif: motif.trim(),
+        dept,
+        statut: 'En attente',
+        urgence,
+      })
+      if (error) return showToast('Erreur: ' + error.message, 'error')
+    } catch (e) {
+      return showToast('Erreur réseau : ' + (e?.message || e), 'error')
+    } finally {
+      setLoading(false)
+    }
     showToast('Demande soumise avec succès')
     await loadDemandes(supabase, dept)
     closeModal()

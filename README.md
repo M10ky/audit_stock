@@ -1,42 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Connecteo Stock (audit_stock)
 
-## Getting Started
+Gestion de stock d'inventaire connecteo — app **Next.js 15 (App Router)**,
+migration du frontend Vanilla `CNTOJS` (source de vérité fonctionnelle). Les
+deux dépôts partagent le même backend Supabase.
 
-First, run the development server:
+## Stack
+
+- **Next.js 15** (App Router) · React 18 · **Zustand** (stores client)
+- **Supabase** (@supabase/ssr + supabase-js) : auth, RLS, RPC, Realtime
+- **Chart.js** via react-chartjs-2 (charts dashboard & rapports, dynamic no-SSR)
+- **Tabler Icons** (@tabler/icons-react)
+
+## Démarrage
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm run build   # vérification production
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Variables d'environnement requises (`.env.local`) :
+`NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/(app)/` — routes authentifiées : dashboard, stock, mouvements,
+  demandes, alertes, actifs, prets, historique, rapports, amortissement,
+  params, utilisateurs + `app/api/users/*` (route handlers admin)
+- `components/` — UI (Button, Modal, KpiCard, badges…), tables, modales,
+  charts (react-chartjs-2), recherche globale (overlay Ctrl+K)
+- `store/` — Zustand : `dataStore` (produits/mouvements/demandes/paramètres),
+  `actifsStore`, `pretsStore`, `authStore`, `uiStore` (toasts, modales,
+  verrou anti-double-clic `withSubmitLock`)
+- `lib/` — helpers (CUMP, VNC, formateurs, `genId`), `reports`, `csv`,
+  `permissions`, `actifs`, clients Supabase
+- `hooks/` — `useRealtime`, `useSearch`, `usePermissions`, `useDateFilter`,
+  `useInlineFilter`
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# audit_stock
-
-
+---
 
 # CNTOJS/audit_stock — Fiche de passation (migration Vanilla → Next.js)
 
@@ -114,54 +116,69 @@ de dump de fichier complet, une étape validée avant de passer à la suivante.
   `DemandesTable` (validation/refus). Le bouton `<Button loading={busy}>`
   utilise `busy = loading || isSubmitting` pour combiner l'état local du
   composant et le verrou global.
-  🐛 Dette identifiée en passant (non corrigée, hors périmètre de l'étape) :
-  `DemandeModal.jsx` a un `return showToast('Erreur: ...')` sur échec réseau
-  SANS `setLoading(false)` avant — le bouton resterait bloqué en spinner
-  local après une erreur serveur (le verrou global se libère bien via le
-  `finally` du wrapper, mais l'état `loading` local du composant, lui, reste
-  à `true`). À corriger si on retouche ce fichier.
-  ⚠️ Non couvert par cette étape (mutations mono-table jugées moins critiques,
-  pas de RPC multi-table) : `ActifEditModal`, `ActifTransferModal`,
-  `ProduitAddModal`, `ProduitEditModal`. Candidats mineurs pour une passe
-  ultérieure si des doubles-clics y sont rapportés en usage réel.
-  ⚠️ `DemandesTable.jsx` : le verrou global bloque bien la double-soumission
-  logique sur validation/refus, mais AUCUN indicateur visuel de spinner par
-  ligne n'a été ajouté (contrairement aux modales) — le tableau a un bouton
-  par ligne, pas un unique bouton de soumission ; ajouter un état de
-  chargement par ligne (ex: `loadingRowId`) si un retour visuel est demandé.
+  ✅ À noter : la dette `DemandeModal.jsx` (setLoading manquant sur erreur)
+  et l'absence de spinner par ligne dans `DemandesTable.jsx` ont été résolues
+  en **Étape H bis** (voir plus bas). `ActifEditModal`/`ActifTransferModal`/
+  `ProduitAddModal`/`ProduitEditModal` : jamais touchés, aucun double-clic
+  rapporté — laissés tels quels (mutations mono-table, risque faible).
 
-## Ce qui reste à faire (ordre proposé, non encore validé avec l'utilisateur)
+- **Étape I — Rapports & Statistiques** : auditée, **déjà 100 % paritaire** —
+  `rapports/page.js` (11 KPI + 6 charts + 3 tableaux d'analyse détaillée),
+  `lib/reports.js` (helpers miroirs de `js/reports.js`), charts = vrais
+  composants react-chartjs-2 (`BarChartCard`, `LineChartCard`,
+  `DoughnutChartCard`, dynamic no-SSR), **pas des stubs** ;
+  `AmortissementTable.jsx` + `amortissement/page.js` vérifiés paritaires.
+- **Étape J — Admin (Utilisateurs / Paramètres)** : auditée ; 1 patch appliqué
+  dans `ParamsPanel.jsx` : stat « Fournisseurs » ajoutée (couleur `#0ea5e9`,
+  mirror `settings.js:349-350`) + grille stats en
+  `repeat(auto-fit, minmax(100px, 1fr))`. Route Handlers admin présents :
+  `app/api/users/[id]/route.js` (DELETE profil + auth, service_role),
+  `app/api/users/reset-password/route.js` (resetPasswordForEmail).
+  J2 (cosmétique) et J3 (select département = extension) laissés tels quels.
+- **Étape K — Export CSV** : auditée, **déjà 100 % paritaire** — `lib/csv.js`
+  (`exportToCSV`/`todayFileDate`/`escapeCell`) complet ; boutons CSV présents
+  sur toutes les pages (Produits, Mouvements, Demandes, Historique, Alertes,
+  Actifs, Prêts, Utilisateurs, Amortissement). `exportRapportsCSV` n'existe
+  pas côté Next.js mais n'est jamais appelé côté Vanilla non plus (parité).
+- **Étape L — Recherche globale + Realtime** : **déjà faite** —
+  `SearchOverlay.jsx`/`useSearch.js` indexent les 5 sections (produits,
+  mouvements, demandes, **actifs**, **prets** — les deux dernières mirrors
+  `js/app.js runSearch()`, gates `canManIT`/`canManFin`), filtres
+  `actifs`/`prets` + couleurs de statut déjà présents ; Realtime `parametres`
+  branché (`useRealtime.js`). Realtime `profiles` : volontairement **non
+  branché** — le Vanilla (auth.js:129-135) ne le branche pas non plus,
+  parité stricte.
+- **Étape H bis — Dettes techniques** :
+  `DemandeModal.jsx` — `handleSubmit` enveloppé dans `try/catch/finally` :
+  `setLoading(false)` garanti sur tous les chemins (y compris exception réseau
+  levée), toast d'erreur réseau ajouté en `catch`.
+  `DemandesTable.jsx` — état `loadingRowId` par ligne : spinner sur le bouton
+  cliqué, tous les boutons d'action désactivés pendant l'opération,
+  `handleValid` enveloppé dans `try/finally` pour remettre l'état à zéro sur
+  tous les chemins (succès, erreur, ouverture `DemAttributionModal`).
+  `withSubmitLock` confirmé câblé sur les modales de mutation principales.
+- **Style & Layout professionnel** : design system resserré dans
+  `globals.css` (padding page 20px, KPI `minmax(170px,1fr)` → 155px ≥1100px,
+  chart-grid `minmax(340px,1fr)`, gaps 12px, tables compactes `9px 12px`,
+  card-header/card-body réduits, breakpoint ≥1100px dédié). Charts
+  `height: 260 → 220`. Dashboard : section basse regroupée en
+  `dashboard-grid` (bar chart span-2, camembert compact centré, table
+  « Activités récentes » scrollable max-height 260). Rapports : stats
+  d'analyse détaillée transformées en cards KPI + tables « Valeur moyenne par
+  catégorie » et « Produits sans mouvement » côte à côte en `dashboard-grid`.
 
-- **Étape I** : page Rapports (`app/(app)/rapports/page.js` est un stub TODO)
-  — reconstruire les ~11 KPI + 6 charts + 3 tableaux d'analyse détaillée
-  (`js/reports.js: renderRapports()`). Fix aussi `AmortissementTable.jsx` qui
-  semble déjà basé sur `ST.actifs` côté composant fourni — À REVÉRIFIER
-  ligne par ligne contre `js/reports.js: renderAmortissement()` avant de
-  clore ce point (le composant fourni dans ce fil a l'air correct mais n'a
-  pas été audité aussi finement que les autres modules).
-- **Étape J** : pages Utilisateurs et Paramètres (actuellement des stubs
-  TODO) — admin uniquement, CRUD profils + rôles + listes de paramètres
-  métier (destinations, catégories, emplacements, fournisseurs).
-- **Étape K** : export CSV générique — `lib/csv.js` existe déjà (utilisé par
-  `ActifsTable`/`PretsTable`) mais aucun bouton CSV sur Stock/Mouvements/
-  Demandes/Alertes/Historique côté Next.js (le Vanilla en a partout via
-  `js/export.js`).
-- **Étape L** : recherche globale — `SearchOverlay.jsx`/`useSearch.js`
-  n'indexent que produits/mouvements/demandes ; ajouter les sections Actifs
-  et Prêts (le Vanilla a `sf-actifs`/`sf-prets` dans les filtres de
-  l'overlay Ctrl+K). Realtime pour `parametres` et `profiles` à vérifier
-  aussi (seuls `produits`/`mouvements`/`demandes`/`actifs_individuels`/
-  `prets` sont branchés à ce stade).
-- **Charts.js** : tous les composants `components/charts/ChartX.jsx` fournis
-  retournent `null` (stubs TODO explicites "dynamic import no-SSR
-  obligatoire") — aucun graphique Chart.js n'est réellement rendu nulle
-  part dans le Next.js actuel, y compris dans le Dashboard existant. Ce
-  chantier recoupe l'Étape I (Rapports) mais concerne aussi le Dashboard.
-- **Étape H bis (optionnelle)** : étendre `withSubmitLock` à
-  `ActifEditModal`/`ActifTransferModal`/`ProduitAddModal`/`ProduitEditModal`
-  si jugé nécessaire, + corriger la dette `DemandeModal.jsx` (`setLoading`
-  manquant sur la branche d'erreur), + indicateur visuel par ligne dans
-  `DemandesTable.jsx` si demandé.
+## Ce qui reste à faire
+
+État de la migration : **100 % paritaire** avec la source Vanilla. Tous les
+chantiers de la fiche initiale (Étapes A à L) sont terminés ou ont été audités
+et clôturés. Points d'amélioration optionnels identifiés (au-delà de la
+parité) :
+- **Realtime `profiles`** : non branché (le Vanilla ne le fait pas non plus).
+  Pourrait être ajouté pour une sync auto des profils admin en live.
+- **J2** (cosmétique panel paramètres) et **J3** (select département en
+  création de demande = extension) : laissés volontairement de côté.
+- **`exportRapportsCSV`** : à implémenter seulement si un export consolidé
+  des rapports est demandé (jamais appelé dans l'UI Vanilla).
 
 ## Points de vigilance / dette non résolue
 
@@ -195,7 +212,9 @@ de dump de fichier complet, une étape validée avant de passer à la suivante.
    toujours d'actualité.
 
 ## Comment reprendre
-Démarrer la nouvelle conversation en collant cette fiche + redemander à
-l'utilisateur quelle étape il souhaite traiter (I, J, K, L, ou H bis), en
-rappelant le principe : plan-first, une étape à la fois, confirmation avant
-de coder.
+Démarrer la nouvelle conversation en collant cette fiche. La migration est
+**100 % paritaire** avec la source Vanilla ; le reliquat est optionnel (style,
+extensions, fonctionnalités au-delà du Vanilla) ou dépend de retours d'usage
+réel. Rappeler le principe de travail : plan-first, patches FIND/REPLACE
+scopés, une étape validée avant la suivante, confirmation explicite avant de
+coder.

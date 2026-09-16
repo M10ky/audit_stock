@@ -30,7 +30,7 @@ export default function DoughnutChartCard({ labels = [], data = [], colors = [],
   }
 
   return (
-    <div className="bar-chart-wrap" style={{ height: 260 }}>
+    <div className="bar-chart-wrap" style={{ height: 220 }}>
       <Doughnut data={chartData} options={options} />
     </div>
   )

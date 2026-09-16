@@ -261,12 +261,12 @@ ul { list-style: none; }
   min-height: 100vh;
 }
 .page-body {
-  padding: 24px;
+  padding: 20px;
   flex: 1;
 }
 .page-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   flex-wrap: wrap; gap: 12px;
 }
 .page-title {
@@ -299,40 +299,40 @@ ul { list-style: none; }
   box-shadow: var(--shadow);
 }
 .card-header {
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px;
 }
 .card-header-title {
-  font-size: 14px; font-weight: 600; color: var(--text);
+  font-size: 13px; font-weight: 600; color: var(--text);
   display: flex; align-items: center; gap: 8px;
 }
-.card-body { padding: 20px; }
+.card-body { padding: 16px; }
 .card-footer {
-  padding: 14px 20px;
+  padding: 10px 16px;
   border-top: 1px solid var(--border);
   display: flex; align-items: center; justify-content: flex-end; gap: 8px;
 }
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
 }
 .kpi {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r);
-  padding: 18px 20px;
-  display: flex; align-items: center; gap: 16px;
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
   box-shadow: var(--shadow);
   transition: transform var(--transition), box-shadow var(--transition);
 }
-.kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .kpi-icon {
-  width: 44px; height: 44px; border-radius: 10px;
+  width: 38px; height: 38px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -343,8 +343,8 @@ ul { list-style: none; }
 .kpi-icon.green  { background: var(--green-l);   color: var(--green); }
 .kpi-icon.purple { background: var(--purple-l);  color: var(--purple); }
 .kpi-info { min-width: 0; }
-.kpi-val  { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.2; }
-.kpi-label{ font-size: 12px; color: var(--text3); margin-top: 2px; font-weight: 500; }
+.kpi-val  { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.2; }
+.kpi-label{ font-size: 11.5px; color: var(--text3); margin-top: 1px; font-weight: 500; }
 
 /* ════════════════════════════════════════════════════════════════
    TABLES
@@ -362,20 +362,21 @@ ul { list-style: none; }
   font-size: 13.5px;
 }
 .table th {
-  padding: 11px 14px;
+  padding: 9px 12px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   text-align: left;
-  font-size: 11.5px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   color: var(--text3);
   text-transform: uppercase; letter-spacing: .5px;
   white-space: nowrap;
 }
 .table td {
-  padding: 11px 14px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--text2);
   vertical-align: middle;
+  font-size: 13px;
 }
 .table tr:last-child td { border-bottom: none; }
 .table tbody tr { transition: background var(--transition); }
@@ -831,9 +832,9 @@ ul { list-style: none; }
 }
 .chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
 }
 .chart-title {
   font-size: 13px; font-weight: 700; color: var(--text);
@@ -876,7 +877,7 @@ ul { list-style: none; }
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 12px;
 }
 .dashboard-grid .span-2 { grid-column: 1 / -1; }
 
@@ -948,6 +949,9 @@ ul { list-style: none; }
 /* ════════════════════════════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════════════════════════════ */
+@media (min-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
+}
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
@@ -962,7 +966,7 @@ ul { list-style: none; }
   .chart-grid { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .topbar { padding: 0 16px; }
-  .page-body { padding: 16px; }
+  .page-body { padding: 14px; }
   .modal-box { max-width: 100%; margin: 0 12px; }
   .sidebar-overlay {
     position: fixed; inset: 0;

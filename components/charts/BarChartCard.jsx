@@ -57,7 +57,7 @@ export default function BarChartCard({
   }
 
   return (
-    <div className="bar-chart-wrap" style={{ height: 260 }}>
+    <div className="bar-chart-wrap" style={{ height: 220 }}>
       <Bar data={data} options={options} />
     </div>
   )
