@@ -7,7 +7,7 @@ import {
 import { useActifsStore } from '@/store/actifsStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useUiStore } from '@/store/uiStore'
-import { fmt, fmtDate } from '@/lib/helpers'
+import { fmt, fmtDate, fmtMoney, fmtMoneyExact, fmtCompact } from '@/lib/helpers'
 import { STATUS_ACTIF, calcVNCActif, amortPctActif } from '@/lib/actifs'
 import { tauxLineaire, annuiteLineaire, amortColor } from '@/lib/amortissement'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
@@ -19,13 +19,13 @@ import DoughnutChartCard from '@/components/charts/DoughnutChartCard'
 
 const KPI_COLORS = { indigo: 'var(--indigo)', green: 'var(--green)', amber: 'var(--amber)', red: 'var(--red)' }
 
-function KpiAmort({ label, value, sub, colorKey, icon: Icon }) {
+function KpiAmort({ label, value, sub, colorKey, icon: Icon, raw }) {
   const borderColor = KPI_COLORS[colorKey] || KPI_COLORS.indigo
   return (
-    <div className="kpi" style={{ borderLeft: `3px solid ${borderColor}` }}>
+    <div className="kpi kpi-enter" style={{ borderLeft: `3px solid ${borderColor}` }} title={raw != null ? fmtMoneyExact(raw) : undefined}>
       <div className={`kpi-icon ${colorKey}`}><Icon size={22} /></div>
       <div className="kpi-info">
-        <div className="kpi-val">{value}</div>
+        <div className="kpi-val">{raw != null ? fmtMoney(raw) : value}</div>
         <div className="kpi-label">{label}{sub ? ` · ${sub}` : ''}</div>
       </div>
     </div>
@@ -126,9 +126,9 @@ export default function AmortissementTable() {
       </div>
 
       <div className="kpi-grid">
-        <KpiAmort label="Valeur Acquisition Totale" value={`${fmt(totalAchat)} MGA`} sub={`${filtered.length} actif(s)`} colorKey="indigo" icon={IconTrendingDown} />
-        <KpiAmort label="VNC Actuelle Totale" value={`${fmt(totalVNC)} MGA`} sub="Valeur nette comptable" colorKey="green" icon={IconTrendingDown} />
-        <KpiAmort label="Amortissement Cumulé" value={`${fmt(totalAmort)} MGA`} sub={filtered.length > 0 ? `${pctGlobal}% de la valeur initiale` : '—'} colorKey="amber" icon={IconTrendingDown} />
+        <KpiAmort label="Valeur Acquisition Totale" value={`${fmt(totalAchat)} MGA`} raw={totalAchat} sub={`${filtered.length} actif(s)`} colorKey="indigo" icon={IconTrendingDown} />
+        <KpiAmort label="VNC Actuelle Totale" value={`${fmt(totalVNC)} MGA`} raw={totalVNC} sub="Valeur nette comptable" colorKey="green" icon={IconTrendingDown} />
+        <KpiAmort label="Amortissement Cumulé" value={`${fmt(totalAmort)} MGA`} raw={totalAmort} sub={filtered.length > 0 ? `${pctGlobal}% de la valeur initiale` : '—'} colorKey="amber" icon={IconTrendingDown} />
         <KpiAmort label="Actifs Totalement Amortis" value={nbExpires} sub="VNC nulle" colorKey="red" icon={IconAlertTriangle} />
       </div>
 
@@ -219,18 +219,18 @@ export default function AmortissementTable() {
                       <td>{a.emplacement
                         ? <span className="badge" style={{ background: '#dbeafe', color: '#1e40af' }}>{a.emplacement}</span>
                         : <span className="text-muted">—</span>}</td>
-                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{fmt(a.valeur_achat)} MGA</td>
+                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }} title={`${fmt(a.valeur_achat)} MGA`}>{fmtMoney(a.valeur_achat)}</td>
                       <td className="text-muted">{fmtDate(a.date_achat)}</td>
                       <td style={{ fontSize: 11, color: 'var(--text3)' }}>
                         {(a.duree_amortissement / 12).toFixed(1)} a · <strong>{taux}%/an</strong>
                       </td>
-                      <td style={{ fontSize: 11, color: 'var(--text3)' }}>{annuite ? `${fmt(annuite)} MGA/an` : '—'}</td>
+                      <td style={{ fontSize: 11, color: 'var(--text3)' }}>{annuite ? `${fmtCompact(annuite)} MGA/an` : '—'}</td>
                       <td>
                         {vnc === 0 ? (
                           <span className="badge" style={{ background: '#fef2f2', color: '#dc2626' }}>Totalement amorti</span>
                         ) : (
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 12, color, marginBottom: 3 }}>{fmt(vnc)} MGA</div>
+                            <div style={{ fontWeight: 700, fontSize: 12, color, marginBottom: 3 }} title={`${fmt(vnc)} MGA`}>{fmtMoney(vnc)}</div>
                             <AmortBar pct={pct} />
                           </div>
                         )}

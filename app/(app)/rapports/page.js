@@ -8,7 +8,7 @@ import { useDataStore } from '@/store/dataStore'
 import { useActifsStore } from '@/store/actifsStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useDateFilter } from '@/hooks/useDateFilter'
-import { fmt, fmtDTSplit, getValeurStockActuel } from '@/lib/helpers'
+import { fmt, fmtDTSplit, fmtMoney, fmtMoneyExact, getValeurStockActuel } from '@/lib/helpers'
 import {
   getProduitsVisibles, tauxValidationGlobal, topProduitsDistribues,
   topProduitsCouteux, repartitionActifsStatut, evolutionValeurStock,
@@ -55,13 +55,13 @@ export default function RapportsPage() {
   const nbAmort     = prodsVisibles.filter(p => p.is_amortissable).length
 
   const kpis = [
-    { icon: IconCash,          color: 'indigo', value: `${fmt(vIT)} MGA`,          label: 'Valeur Stock IT',           sub: 'Non-amortissables (CUMP)' },
-    { icon: IconCash,          color: 'green',  value: `${fmt(vFin)} MGA`,         label: 'Valeur Stock Finance',      sub: 'Non-amortissables (CUMP)' },
+    { icon: IconCash,          color: 'indigo', value: fmtMoneyExact(vIT),          raw: vIT, label: 'Valeur Stock IT',           sub: 'Non-amortissables (CUMP)' },
+    { icon: IconCash,          color: 'green',  value: fmtMoneyExact(vFin),         raw: vFin, label: 'Valeur Stock Finance',      sub: 'Non-amortissables (CUMP)' },
     { icon: IconPackage,       color: 'purple', value: nbProduits,                 label: 'Produits (total)',          sub: `${nbAmort} amortissable(s)` },
     { icon: IconPackage,       color: 'teal',   value: fmt(nbUnites),              label: 'Unités en stock',           sub: 'toutes références' },
     { icon: IconTrendingUp,    color: 'indigo', value: mvtPeriode.length,          label: 'Mouvements (période)',      sub: `${entreesP.length} entrée(s) · ${sortiesP.length} sortie(s)` },
-    { icon: IconTrendingUp,    color: 'green',  value: `${fmt(valEntreesP)} MGA`,  label: 'Valeur Entrées (période)',  sub: "coût d'acquisition" },
-    { icon: IconTrendingDown,  color: 'red',    value: `${fmt(valSortiesP)} MGA`,  label: 'Valeur Sorties (période)',  sub: 'valorisées au CUMP' },
+    { icon: IconTrendingUp,    color: 'green',  value: fmtMoneyExact(valEntreesP), raw: valEntreesP, label: 'Valeur Entrées (période)',  sub: "coût d'acquisition" },
+    { icon: IconTrendingDown,  color: 'red',    value: fmtMoneyExact(valSortiesP), raw: valSortiesP, label: 'Valeur Sorties (période)',  sub: 'valorisées au CUMP' },
     { icon: IconAlertTriangle, color: 'red',    value: nbCritiques,                label: 'Produits critiques',        sub: 'sous seuil ou rupture' },
     { icon: IconTags,          color: 'purple', value: nbAmort,                    label: 'Produits amortissables',    sub: 'suivi individuel actif' },
     { icon: IconClipboardList, color: 'amber',  value: nbAttente,                  label: 'Demandes en attente',       sub: 'à traiter' },
@@ -110,7 +110,7 @@ export default function RapportsPage() {
       </div>
 
       <div className="kpi-grid">
-        {kpis.map((k, i) => <KpiCard key={i} {...k} />)}
+        {kpis.map((k, i) => <KpiCard key={i} index={i} {...k} />)}
       </div>
 
       <div className="chart-grid">
@@ -192,7 +192,7 @@ export default function RapportsPage() {
         <div className="kpi">
           <div className="kpi-icon indigo"><IconTrendingDown size={20} /></div>
           <div className="kpi-info">
-            <div className="kpi-val">{fmt(Math.round(coutMoySortie))} MGA</div>
+            <div className="kpi-val">{fmtCompact(Math.round(coutMoySortie))} MGA</div>
             <div className="kpi-label">Coût moyen des sorties</div>
           </div>
         </div>
@@ -226,8 +226,8 @@ export default function RapportsPage() {
                   <tr key={i}>
                     <td style={{ fontWeight: 600 }}>{c.cat}</td>
                     <td className="text-muted">{c.n}</td>
-                    <td style={{ fontWeight: 700 }}>{fmt(c.total)} MGA</td>
-                    <td>{fmt(Math.round(c.moyenne))} MGA</td>
+                    <td style={{ fontWeight: 700 }} title={`${fmt(c.total)} MGA`}>{fmtMoney(c.total)}</td>
+                    <td title={`${fmt(Math.round(c.moyenne))} MGA`}>{fmtMoney(Math.round(c.moyenne))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -276,7 +276,7 @@ export default function RapportsPage() {
                     <td><TypeBadge type={m.type} /></td>
                     <td style={{ fontWeight: 500 }}>{m.produit_nom}</td>
                     <td style={{ fontWeight: 700 }}>{m.qty}</td>
-                    <td style={{ fontWeight: 700 }}>{fmt(m.valeur)} MGA</td>
+                    <td style={{ fontWeight: 700 }} title={`${fmt(m.valeur)} MGA`}>{fmtMoney(m.valeur)}</td>
                   </tr>
                 )
               })}

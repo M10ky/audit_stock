@@ -4,7 +4,7 @@ import Button from '@/components/ui/Button'
 import { useUiStore } from '@/store/uiStore'
 import { useDataStore } from '@/store/dataStore'
 import { usePretsStore } from '@/store/pretsStore'
-import { fmtDTSplit, fmt } from '@/lib/helpers'
+import { fmtDTSplit, fmt, fmtMoney } from '@/lib/helpers'
 import { getHistoriqueActif } from '@/lib/actifs'
 import ActifStatutBadge from '@/components/ui/badges/ActifStatutBadge'
 import TypeBadge from '@/components/ui/badges/TypeBadge'
@@ -53,7 +53,7 @@ export default function ActifHistoriqueModal({ actif }) {
                   <td className="col-date"><div className="dt-date">{date}</div><div className="dt-time">{time}</div></td>
                   <td>{badgeFor(h)}</td>
                   <td style={{ fontWeight: 600 }}>{h.qty ?? '—'}</td>
-                  <td style={{ fontWeight: 700 }}>{h.valeur != null ? `${fmt(h.valeur)} MGA` : '—'}</td>
+                  <td style={{ fontWeight: 700 }}>{h.valeur != null ? <span title={`${fmt(h.valeur)} MGA`}>{fmtMoney(h.valeur)}</span> : '—'}</td>
                   <td className="text-muted">{h.lieu || '—'}</td>
                   <td className="text-muted">{h.user || '—'}</td>
                   <td className="text-muted" style={{ maxWidth: 140, fontSize: 12 }}>{h.detail || ''}</td>

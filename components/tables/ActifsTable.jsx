@@ -11,7 +11,7 @@ import { useUiStore } from '@/store/uiStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient } from '@/lib/supabase/client'
-import { fmt, fmtDate } from '@/lib/helpers'
+import { fmt, fmtDate, fmtMoney, fmtMoneyExact } from '@/lib/helpers'
 import { highlight } from '@/hooks/useSearch'
 import {
   STATUS_ACTIF, TRANSITIONS_ACTIF, isValidTransition,
@@ -71,7 +71,7 @@ export default function ActifsTable({ dept }) {
     { lbl: 'Réformés',     val: nbRf, s: 'fin de vie',           c: 'var(--text3)' },
   ]
   if (perm.canSeePrix && actifs.length) {
-    kpis.push({ lbl: 'VNC Totale', val: `${fmt(vncTotale)} MGA`, s: `sur ${fmt(valTotale)} MGA d'achat`, c: 'var(--indigo)' })
+    kpis.push({ lbl: 'VNC Totale', raw: vncTotale, val: `${fmt(vncTotale)} MGA`, s: `sur ${fmt(valTotale)} MGA d'achat`, c: 'var(--indigo)' })
   }
 
   const afterActifChange = async (produitId) => {
@@ -158,9 +158,9 @@ export default function ActifsTable({ dept }) {
     <>
       <div className="kpi-grid">
         {kpis.map((k, i) => (
-          <div key={i} className="kpi" style={{ borderLeft: `3px solid ${k.c}` }}>
+          <div key={i} className="kpi kpi-enter" style={{ borderLeft: `3px solid ${k.c}`, animationDelay: `${Math.min(i * 40, 280)}ms` }} title={k.raw != null ? fmtMoneyExact(k.raw) : undefined}>
             <div className="kpi-info">
-              <div className="kpi-val">{k.val}</div>
+              <div className="kpi-val">{k.raw != null ? fmtMoney(k.raw) : k.val}</div>
               <div className="kpi-label">{k.lbl} · {k.s}</div>
             </div>
           </div>
@@ -213,14 +213,14 @@ export default function ActifsTable({ dept }) {
                       ? <span className="badge" style={{ background: '#dbeafe', color: '#1e40af' }}>{a.emplacement}</span>
                       : <span className="text-muted">—</span>}</td>
                     <td className="text-muted">{fmtDate(a.date_entree)}</td>
-                    {perm.canSeePrix && <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{fmt(a.valeur_achat)} MGA</td>}
+                    {perm.canSeePrix && <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }} title={`${fmt(a.valeur_achat)} MGA`}>{fmtMoney(a.valeur_achat)}</td>}
                     <td className="text-muted" style={{ fontSize: 11 }}>
                       {a.duree_amortissement ? `${(a.duree_amortissement / 12).toFixed(1)} a` : '—'}
                     </td>
                     {perm.canSeePrix && (
                       <td>
                         {pct != null
-                          ? <><div style={{ fontWeight: 700, fontSize: 12 }}>{fmt(vnc)} MGA</div><AmortBar pct={pct} /></>
+                          ? <><div style={{ fontWeight: 700, fontSize: 12 }} title={`${fmt(vnc)} MGA`}>{fmtMoney(vnc)}</div><AmortBar pct={pct} /></>
                           : <span className="text-muted">—</span>}
                       </td>
                     )}

@@ -6,12 +6,11 @@ const Line = dynamic(() => import('react-chartjs-2').then(m => m.Line), { ssr: f
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler,
 } from 'chart.js'
+import { useUiStore } from '@/store/uiStore'
+import { cssVar } from '@/lib/helpers'
 if (typeof window !== 'undefined') {
   ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 }
-
-const GRID = '#e2e8f0'
-const TEXT = '#94a3b8'
 
 /**
  * @param {string[]} labels
@@ -20,6 +19,10 @@ const TEXT = '#94a3b8'
  * @param {(v:number)=>string} tickFormat
  */
 export default function LineChartCard({ labels = [], data = [], color = '#4f46e5', tickFormat }) {
+  const theme = useUiStore(s => s.theme)
+  const GRID = cssVar('--chart-grid')
+  const TEXT = cssVar('--chart-text')
+
   const chartData = {
     labels,
     datasets: [{

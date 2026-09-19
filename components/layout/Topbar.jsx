@@ -1,7 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { IconSearch, IconMenu2, IconX } from '@tabler/icons-react'
+import { IconSearch, IconMenu2, IconX, IconSun, IconMoon } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
 
 // Mapping route → titre
@@ -35,6 +35,7 @@ export default function Topbar() {
   const pathname = usePathname()
   const {
     openSearch, toggleSidebar,
+    theme, toggleTheme,
     dateFrom, dateTo,
     setDateFrom, setDateTo, clearDateFilter,
   } = useUiStore()
@@ -58,7 +59,7 @@ export default function Topbar() {
   return (
     <header className="topbar">
       {/* Burger mobile */}
-      <button className="btn btn-ghost btn-icon" onClick={toggleSidebar} title="Menu">
+      <button className="btn btn-ghost btn-icon topbar-burger" onClick={toggleSidebar} title="Menu">
         <IconMenu2 size={20} />
       </button>
 
@@ -92,6 +93,16 @@ export default function Topbar() {
             )}
           </div>
         )}
+
+        {/* Bascule clair/sombre */}
+        <button
+          className="btn btn-ghost btn-icon theme-toggle"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
+          aria-label={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
+        >
+          {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+        </button>
 
         {/* Bouton recherche globale */}
         <button className="topbar-search-btn" onClick={openSearch}>

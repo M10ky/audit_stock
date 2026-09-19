@@ -8,12 +8,11 @@ const Bar = dynamic(() => import('react-chartjs-2').then(m => m.Bar), { ssr: fal
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend,
 } from 'chart.js'
+import { useUiStore } from '@/store/uiStore'
+import { cssVar } from '@/lib/helpers'
 if (typeof window !== 'undefined') {
   ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 }
-
-const GRID = '#e2e8f0'
-const TEXT = '#94a3b8'
 
 /**
  * @param {string[]} labels
@@ -25,6 +24,10 @@ const TEXT = '#94a3b8'
 export default function BarChartCard({
   labels = [], datasets = [], indexAxis = 'x', showLegend = false, tickFormat,
 }) {
+  const theme = useUiStore(s => s.theme)
+  const GRID_R = cssVar('--chart-grid')
+  const TEXT_R = cssVar('--chart-text')
+
   const data = {
     labels,
     datasets: datasets.map(d => ({
@@ -36,12 +39,12 @@ export default function BarChartCard({
   }
 
   const valueAxis = {
-    ticks: { color: TEXT, font: { size: 9 }, ...(tickFormat ? { callback: tickFormat } : {}) },
-    grid: { color: GRID },
+    ticks: { color: TEXT_R, font: { size: 9 }, ...(tickFormat ? { callback: tickFormat } : {}) },
+    grid: { color: GRID_R },
   }
   const labelAxis = {
-    ticks: { color: TEXT, font: { size: indexAxis === 'y' ? 9 : 9 } },
-    grid: { display: indexAxis === 'y' ? false : true, color: GRID },
+    ticks: { color: TEXT_R, font: { size: indexAxis === 'y' ? 9 : 9 } },
+    grid: { display: indexAxis === 'y' ? false : true, color: GRID_R },
   }
 
   const options = {

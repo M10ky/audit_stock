@@ -1,8 +1,10 @@
 # Connecteo Stock (audit_stock)
 
-Gestion de stock d'inventaire connecteo — app **Next.js 15 (App Router)**,
-migration du frontend Vanilla `CNTOJS` (source de vérité fonctionnelle). Les
-deux dépôts partagent le même backend Supabase.
+Gestion de stock d'inventaire connecteo — **Next.js 15 (App Router)** avec une
+**refonte UI premium 2026** (split login, thème clair/sombre, KPI compacts
+anti-débordement `fmtCompact`/`fmtMoney`, skeletons shimmer, sidebar mobile
+avec burger + fermeture auto), migration du frontend Vanilla `CNTOJS`
+(source de vérité fonctionnelle). Les deux dépôts partagent le même backend Supabase.
 
 ## Stack
 

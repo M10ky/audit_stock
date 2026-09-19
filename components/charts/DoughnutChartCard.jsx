@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic'
 const Doughnut = dynamic(() => import('react-chartjs-2').then(m => m.Doughnut), { ssr: false })
 
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
+import { useUiStore } from '@/store/uiStore'
+import { cssVar } from '@/lib/helpers'
 if (typeof window !== 'undefined') {
   ChartJS.register(ArcElement, Tooltip, Legend)
 }
@@ -15,6 +17,9 @@ if (typeof window !== 'undefined') {
  * @param {(ctx:any)=>string} tooltipLabel - optionnel, mirrors le callback "X: YM MGA" du vanilla
  */
 export default function DoughnutChartCard({ labels = [], data = [], colors = [], tooltipLabel }) {
+  const theme = useUiStore(s => s.theme)
+  const textColor = cssVar('--chart-text')
+
   const chartData = {
     labels,
     datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }],
@@ -24,7 +29,7 @@ export default function DoughnutChartCard({ labels = [], data = [], colors = [],
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'bottom', labels: { font: { size: 9 }, boxWidth: 8 } },
+      legend: { position: 'bottom', labels: { font: { size: 9 }, boxWidth: 8, color: textColor } },
       ...(tooltipLabel ? { tooltip: { callbacks: { label: tooltipLabel } } } : {}),
     },
   }

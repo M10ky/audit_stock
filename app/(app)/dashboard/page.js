@@ -8,7 +8,7 @@ import { useActifsStore } from '@/store/actifsStore'
 import { usePretsStore } from '@/store/pretsStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useDateFilter } from '@/hooks/useDateFilter'
-import { fmt, fmtDTSplit, getValeurStockActuel } from '@/lib/helpers'
+import { fmt, fmtDTSplit, fmtMoney, fmtMoneyExact, getValeurStockActuel } from '@/lib/helpers'
 import { calcVNCActif, STATUS_ACTIF } from '@/lib/actifs'
 import {
   getVNCGlobaleActifs, getPretsValorises, getTauxRotationStock,
@@ -63,10 +63,10 @@ export default function DashboardPage() {
 
   const kpis = []
   if (perm.canSeeIT) kpis.push(perm.canSeePrix
-    ? { icon: IconDeviceLaptop, color: 'indigo', value: `${fmt(totIT)} MGA`, label: 'Valeur Totale IT', sub: `${prodIT.length} réf. stock${nbActifsIT ? ` · ${nbActifsIT} actif(s) amort.` : ''}` }
+    ? { icon: IconDeviceLaptop, color: 'indigo', value: fmtMoneyExact(totIT), raw: totIT, label: 'Valeur Totale IT', sub: `${prodIT.length} réf. stock${nbActifsIT ? ` · ${nbActifsIT} actif(s) amort.` : ''}` }
     : { icon: IconDeviceLaptop, color: 'indigo', value: prodIT.length, label: 'Produits IT', sub: 'références' })
   if (perm.canSeeFin) kpis.push(perm.canSeePrix
-    ? { icon: IconCash, color: 'green', value: `${fmt(totFin)} MGA`, label: 'Valeur Totale Finance', sub: `${prodFin.length} réf. stock${nbActifsFin ? ` · ${nbActifsFin} actif(s) amort.` : ''}` }
+    ? { icon: IconCash, color: 'green', value: fmtMoneyExact(totFin), raw: totFin, label: 'Valeur Totale Finance', sub: `${prodFin.length} réf. stock${nbActifsFin ? ` · ${nbActifsFin} actif(s) amort.` : ''}` }
     : { icon: IconCash, color: 'green', value: prodFin.length, label: 'Produits Finance', sub: 'références' })
   if (perm.canManIT)  kpis.push({ icon: IconBellRinging, color: alIT  > 0 ? 'red' : 'green', value: alIT,  label: 'Alertes IT',      sub: alIT  > 0 ? 'à traiter' : 'Niveaux OK' })
   if (perm.canManFin) kpis.push({ icon: IconBellRinging, color: alFin > 0 ? 'red' : 'green', value: alFin, label: 'Alertes Finance', sub: alFin > 0 ? 'à traiter' : 'Niveaux OK' })
@@ -118,13 +118,13 @@ export default function DashboardPage() {
     const alertesMaj = getAlertesMajeures(produits, prets, actifs, perm)
     const serieEvol  = evolutionValeurStock(produits, mouvements, perm, 12)
     const kpis = [
-      { lbl: 'Valeur Totale Stock (IT+Fin)',        val: `${fmt(valIT + valFin)} MGA`, s: 'stock non-amortissable (CUMP)', c: '#0ea5e9' },
-      { lbl: 'VNC Globale Actifs Amortissables',    val: `${fmt(vncGlobale.vnc)} MGA`, s: `sur ${fmt(vncGlobale.brute)} MGA d'acquisition · ${vncGlobale.nb} actif(s)`, c: '#4f46e5' },
+      { lbl: 'Valeur Totale Stock (IT+Fin)',        raw: valIT + valFin, val: fmtMoney(valIT + valFin), s: 'stock non-amortissable (CUMP)', c: '#0ea5e9' },
+      { lbl: 'VNC Globale Actifs Amortissables',    raw: vncGlobale.vnc, val: fmtMoney(vncGlobale.vnc), s: `sur ${fmtMoneyExact(vncGlobale.brute)} d'acquisition · ${vncGlobale.nb} actif(s)`, c: '#4f46e5' },
       { lbl: 'Taux de rotation du stock',           val: rotation, s: 'sorties valorisées / stock (période)', c: '#f59e0b' },
       { lbl: 'Actifs En service',                   val: etatActifs.enService, s: `${etatActifs.enPret} actuellement en prêt`, c: '#10b981' },
       { lbl: 'Actifs HS / Réformés',                val: etatActifs.horsService + etatActifs.reforme, s: `${etatActifs.horsService} HS · ${etatActifs.reforme} réformé(s)`, c: '#94a3b8' },
-      { lbl: 'Prêts en cours',                      val: pretsInfo.enCours, s: `${fmt(pretsInfo.valeurEnCours)} MGA valorisés`, c: '#3b82f6' },
-      { lbl: 'Prêts en retard',                     val: pretsInfo.enRetard, s: `${fmt(pretsInfo.valeurEnRetard)} MGA valorisés`, c: pretsInfo.enRetard > 0 ? '#ef4444' : '#22c55e' },
+      { lbl: 'Prêts en cours',                      val: pretsInfo.enCours, s: `${fmtMoney(pretsInfo.valeurEnCours)} valorisés`, c: '#3b82f6' },
+      { lbl: 'Prêts en retard',                     val: pretsInfo.enRetard, s: `${fmtMoney(pretsInfo.valeurEnRetard)} valorisés`, c: pretsInfo.enRetard > 0 ? '#ef4444' : '#22c55e' },
     ]
     return {
       vncGlobale, pretsInfo, rotation, etatActifs, topCats, alertesMaj, serieEvol, kpis,
@@ -174,9 +174,9 @@ export default function DashboardPage() {
 
           <div className="kpi-grid">
             {lecteur.kpis.map((k, i) => (
-              <div key={i} className="kpi" style={{ borderLeftColor: k.c }}>
+              <div key={i} className="kpi kpi-stack kpi-enter" style={{ borderLeftColor: k.c, animationDelay: `${Math.min(i * 40, 280)}ms` }} title={k.raw != null ? fmtMoneyExact(k.raw) : undefined}>
                 <div className="kpi-lbl">{k.lbl}</div>
-                <div className="kpi-val">{k.val}</div>
+                <div className="kpi-val">{k.raw != null ? fmtMoney(k.raw) : k.val}</div>
                 <div className="kpi-s">{k.s || ''}</div>
               </div>
             ))}
@@ -237,7 +237,7 @@ export default function DashboardPage() {
                       <tr key={c.cat}>
                         <td style={{ fontWeight: 700, color: 'var(--text3)' }}>#{i + 1}</td>
                         <td style={{ fontWeight: 600 }}>{c.cat}</td>
-                        <td style={{ fontWeight: 800, color: '#4f46e5' }}>{fmt(c.val)} MGA</td>
+                        <td style={{ fontWeight: 800, color: '#4f46e5' }} title={`${fmt(c.val)} MGA`}>{fmtMoney(c.val)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -249,7 +249,7 @@ export default function DashboardPage() {
       )}
 
       <div className="kpi-grid">
-        {kpis.map((k, i) => <KpiCard key={i} {...k} />)}
+        {kpis.map((k, i) => <KpiCard key={i} index={i} {...k} />)}
       </div>
 
       {perm.canSeeHist && (

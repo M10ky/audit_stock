@@ -7,7 +7,7 @@ import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { createClient } from '@/lib/supabase/client'
-import { fmt, fmtDate, genId } from '@/lib/helpers'
+import { fmt, fmtDate, fmtMoney, genId } from '@/lib/helpers'
 import { STATUS_ACTIF } from '@/lib/actifs'
 
 // Mirrors js/app.js renderModalDemAttribution() / submitDemAttribution()
@@ -120,7 +120,7 @@ export default function DemandeAttributionModal({ demande, produit, dept }) {
                   </td>
                   <td className="cell-mono">{a.id}</td>
                   <td className="text-muted">{a.emplacement || '—'}</td>
-                  <td className="text-muted">{fmt(a.valeur_achat)} MGA</td>
+                  <td className="text-muted" title={`${fmt(a.valeur_achat)} MGA`}>{fmtMoney(a.valeur_achat)}</td>
                   <td className="text-muted">{fmtDate(a.date_entree)}</td>
                 </tr>
               ))}

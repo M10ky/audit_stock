@@ -5,11 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import {
   IconEye, IconEyeOff, IconLoader2,
   IconLock, IconMail, IconAlertCircle, IconCircleCheck,
+  IconMoon, IconSun,
 } from '@tabler/icons-react'
+import { useUiStore } from '@/store/uiStore'
 
 export default function LoginForm() {
   const router   = useRouter()
   const supabase = createClient()
+  const { theme, toggleTheme } = useUiStore()
 
   const [mode, setMode]       = useState('login')   // 'login' | 'forgot'
   const [email, setEmail]     = useState('')
@@ -78,8 +81,53 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
+    <div className="login-page login-split">
+
+      {/* ── Panneau marque (desktop) ── */}
+      <div className="login-brand">
+        <div className="brand-orb brand-orb-a"/>
+        <div className="brand-orb brand-orb-b"/>
+        <div className="brand-noise"/>
+
+        <div className="brand-badge">Connecteo · ERP Stock</div>
+        <div className="brand-title">Votre stock,<br/><em>en temps réel.</em></div>
+        <div className="brand-meta">
+          Valorisation CUMP, inventaires multi-dépôts et alertes de seuils — réunis dans une seule vue claire et auditable.
+        </div>
+
+        <ul className="brand-points">
+          <li><IconCircleCheck size={15}/> Suivi comptable produits &amp; valeur d’acquisition</li>
+          <li><IconCircleCheck size={15}/> Calculs d’amortissement automatiques</li>
+          <li><IconCircleCheck size={15}/> Rapports et analyses par catégorie</li>
+        </ul>
+
+        <div className="brand-chart" role="presentation" aria-hidden="true">
+          <span style={{ '--d': '.02s' }}/>
+          <span style={{ '--d': '.08s' }}/>
+          <span style={{ '--d': '.04s' }}/>
+          <span style={{ '--d': '.12s' }}/>
+          <span style={{ '--d': '.06s' }}/>
+          <span style={{ '--d': '.1s' }}/>
+          <span style={{ '--d': '.03s' }}/>
+          <span style={{ '--d': '.09s' }}/>
+        </div>
+
+        <div className="brand-foot">© {new Date().getFullYear()} Connecteo — Suivi des stocks & comptabilité</div>
+      </div>
+
+      {/* ── Panneau formulaire ── */}
+      <div className="login-panel">
+        <button
+          type="button"
+          className="theme-toggle login-theme-toggle"
+          onClick={toggleTheme}
+          aria-label="Basculer clair / sombre"
+          title={theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'}
+        >
+          {theme === 'dark' ? <IconSun size={16}/> : <IconMoon size={16}/>}
+        </button>
+
+        <div className="login-card">
 
         {/* ── Header ── */}
         <div className="login-header">
@@ -207,6 +255,7 @@ export default function LoginForm() {
             </div>
           </form>
         )}
+        </div>
       </div>
     </div>
   )

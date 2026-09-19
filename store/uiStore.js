@@ -88,6 +88,26 @@ export const useUiStore = create((set, get) => ({
   clearDateFilter: () => set({ dateFrom: '', dateTo: '' }),
 
   // ══════════════════════════════════════════════════════════
+  //  THÈME (clair / sombre) — persisté dans localStorage
+  // ══════════════════════════════════════════════════════════
+  theme: 'light',
+
+  initTheme: () => {
+    if (typeof window === 'undefined') return
+    const stored = localStorage.getItem('cs-theme')
+    const t = stored === 'dark' || stored === 'light'
+      ? stored
+      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    set({ theme: t })
+  },
+
+  toggleTheme: () => {
+    const t = get().theme === 'dark' ? 'light' : 'dark'
+    localStorage.setItem('cs-theme', t)
+    set({ theme: t })
+  },
+
+  // ══════════════════════════════════════════════════════════
   //  SIDEBAR MOBILE
   // ══════════════════════════════════════════════════════════
   sidebarOpen: false,

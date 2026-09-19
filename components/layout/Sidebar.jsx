@@ -21,6 +21,7 @@ import DeptBanner from '@/components/layout/DeptBanner'
 function NavLink({ href, icon: Icon, label, badge, deptClass }) {
   const pathname = usePathname()
   const active   = pathname === href || pathname.startsWith(href + '/')
+  const close    = useUiStore(s => s.closeSidebar)
 
   const activeClass = deptClass === 'fin'
     ? 'nav-link active active-fin'
@@ -28,7 +29,7 @@ function NavLink({ href, icon: Icon, label, badge, deptClass }) {
 
   return (
     <li className="nav-item">
-      <Link href={href} className={active ? activeClass : 'nav-link'}>
+      <Link href={href} className={active ? activeClass : 'nav-link'} onClick={close}>
         <Icon size={17} />
         <span>{label}</span>
         {badge > 0 && <span className="nav-badge">{badge}</span>}
@@ -93,6 +94,7 @@ export default function Sidebar() {
           </div>
           {/* Bouton fermer sur mobile */}
           <button
+            className="sidebar-close"
             onClick={closeSidebar}
             style={{ marginLeft: 'auto', color: 'rgba(255,255,255,.4)', padding: 4 }}
           >

@@ -6,7 +6,7 @@ import { useUiStore }      from '@/store/uiStore'
 import { useDateFilter }   from '@/hooks/useDateFilter'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
-import { fmt, fmtDT, fmtDTSplit } from '@/lib/helpers'
+import { fmt, fmtDT, fmtDTSplit, fmtMoney } from '@/lib/helpers'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
@@ -129,7 +129,7 @@ export default function MouvementsTable({ dept }) {
                       <span dangerouslySetInnerHTML={highlight(m.produit_nom, q)} />
                     </td>
                     <td style={{ fontWeight: 700 }}>{m.qty}</td>
-                    <td className="text-muted">{fmt(m.valeur)} MGA</td>
+                    <td className="text-muted" title={`${fmt(m.valeur)} MGA`}>{fmtMoney(m.valeur)}</td>
                     <td className="text-muted">
                       <span dangerouslySetInnerHTML={highlight(m.emplacement || '—', q)} />
                     </td>
