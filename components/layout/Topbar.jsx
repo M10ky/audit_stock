@@ -40,7 +40,7 @@ export default function Topbar() {
     setDateFrom, setDateTo, clearDateFilter,
   } = useUiStore()
 
-  const title      = TITLES[pathname] || 'Connecteo Stock'
+  const title      = TITLES[pathname] || 'ARGOS'
   const showFilter = DATE_FILTER_PAGES.includes(pathname)
   const hasFilter  = dateFrom || dateTo
 

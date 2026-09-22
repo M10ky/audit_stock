@@ -7,30 +7,16 @@ import {
 import { useActifsStore } from '@/store/actifsStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useUiStore } from '@/store/uiStore'
-import { fmt, fmtDate, fmtMoney, fmtMoneyExact, fmtCompact } from '@/lib/helpers'
+import { fmt, fmtDate, fmtMoney, fmtCompact } from '@/lib/helpers'
 import { STATUS_ACTIF, calcVNCActif, amortPctActif } from '@/lib/actifs'
 import { tauxLineaire, annuiteLineaire, amortColor } from '@/lib/amortissement'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import AmortBar from '@/components/ui/badges/AmortBar'
 import DeptTag from '@/components/ui/badges/DeptTag'
 import Button from '@/components/ui/Button'
+import KpiCard from '@/components/ui/KpiCard'
 import BarChartCard from '@/components/charts/BarChartCard'
 import DoughnutChartCard from '@/components/charts/DoughnutChartCard'
-
-const KPI_COLORS = { indigo: 'var(--indigo)', green: 'var(--green)', amber: 'var(--amber)', red: 'var(--red)' }
-
-function KpiAmort({ label, value, sub, colorKey, icon: Icon, raw }) {
-  const borderColor = KPI_COLORS[colorKey] || KPI_COLORS.indigo
-  return (
-    <div className="kpi kpi-enter" style={{ borderLeft: `3px solid ${borderColor}` }} title={raw != null ? fmtMoneyExact(raw) : undefined}>
-      <div className={`kpi-icon ${colorKey}`}><Icon size={22} /></div>
-      <div className="kpi-info">
-        <div className="kpi-val">{raw != null ? fmtMoney(raw) : value}</div>
-        <div className="kpi-label">{label}{sub ? ` · ${sub}` : ''}</div>
-      </div>
-    </div>
-  )
-}
 
 export default function AmortissementTable() {
   const perm = usePermissions()
@@ -126,10 +112,11 @@ export default function AmortissementTable() {
       </div>
 
       <div className="kpi-grid">
-        <KpiAmort label="Valeur Acquisition Totale" value={`${fmt(totalAchat)} MGA`} raw={totalAchat} sub={`${filtered.length} actif(s)`} colorKey="indigo" icon={IconTrendingDown} />
-        <KpiAmort label="VNC Actuelle Totale" value={`${fmt(totalVNC)} MGA`} raw={totalVNC} sub="Valeur nette comptable" colorKey="green" icon={IconTrendingDown} />
-        <KpiAmort label="Amortissement Cumulé" value={`${fmt(totalAmort)} MGA`} raw={totalAmort} sub={filtered.length > 0 ? `${pctGlobal}% de la valeur initiale` : '—'} colorKey="amber" icon={IconTrendingDown} />
-        <KpiAmort label="Actifs Totalement Amortis" value={nbExpires} sub="VNC nulle" colorKey="red" icon={IconAlertTriangle} />
+        {/* Règle métier : KPI migrés de KpiAmort local vers KpiCard partagé — libellés raccourcis (<20 car.), montants MGA via `raw` (fmtMoney auto + tooltip exact) */}
+        <KpiCard index={0} icon={IconTrendingDown} color="indigo" accent="var(--indigo)" raw={totalAchat} label="Valeur acquisition" sub={`${filtered.length} actif(s)`} />
+        <KpiCard index={1} icon={IconTrendingDown} color="green" accent="var(--green)" raw={totalVNC} label="VNC Actuelle Totale" sub="Valeur nette comptable" />
+        <KpiCard index={2} icon={IconTrendingDown} color="amber" accent="var(--amber)" raw={totalAmort} label="Amort. cumulé" sub={filtered.length > 0 ? `${pctGlobal}% de la valeur initiale` : '—'} />
+        <KpiCard index={3} icon={IconAlertTriangle} color="red" accent="var(--red)" value={nbExpires} label="Amortis à 100%" sub="VNC nulle" />
       </div>
 
       <div className="inline-filter-bar" style={{ marginBottom: 12 }}>

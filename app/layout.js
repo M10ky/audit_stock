@@ -2,8 +2,8 @@ import '../styles/globals.css'
 import ThemeManager from '@/components/layout/ThemeManager'
 
 export const metadata = {
-  title: 'Connecteo Stock',
-  description: 'Système multi-départements de gestion des stocks — Connecteo',
+  title: 'ARGOS',
+  description: 'Gestion des stocks',
   icons: { icon: '/favicon.ico' },
 }
 

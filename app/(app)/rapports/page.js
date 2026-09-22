@@ -8,7 +8,7 @@ import { useDataStore } from '@/store/dataStore'
 import { useActifsStore } from '@/store/actifsStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useDateFilter } from '@/hooks/useDateFilter'
-import { fmt, fmtDTSplit, fmtMoney, fmtMoneyExact, getValeurStockActuel } from '@/lib/helpers'
+import { fmt, fmtCompact, fmtDTSplit, fmtMoney, fmtMoneyExact, getValeurStockActuel } from '@/lib/helpers'
 import {
   getProduitsVisibles, tauxValidationGlobal, topProduitsDistribues,
   topProduitsCouteux, repartitionActifsStatut, evolutionValeurStock,

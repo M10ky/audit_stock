@@ -1,4 +1,4 @@
-# Connecteo Stock (audit_stock)
+# ARGOS (audit_stock)
 
 Gestion de stock d'inventaire connecteo — **Next.js 15 (App Router)** avec une
 **refonte UI premium 2026** (split login, thème clair/sombre, KPI compacts

@@ -11,7 +11,7 @@ import { useUiStore } from '@/store/uiStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient } from '@/lib/supabase/client'
-import { fmt, fmtDate, fmtMoney, fmtMoneyExact } from '@/lib/helpers'
+import { fmt, fmtDate, fmtMoney } from '@/lib/helpers'
 import { highlight } from '@/hooks/useSearch'
 import {
   STATUS_ACTIF, TRANSITIONS_ACTIF, isValidTransition,
@@ -19,6 +19,7 @@ import {
 } from '@/lib/actifs'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import Button from '@/components/ui/Button'
+import KpiCard from '@/components/ui/KpiCard'
 import ActifStatutBadge from '@/components/ui/badges/ActifStatutBadge'
 import AmortBar from '@/components/ui/badges/AmortBar'
 
@@ -157,13 +158,17 @@ export default function ActifsTable({ dept }) {
   return (
     <>
       <div className="kpi-grid">
+        {/* Règle métier : KPI unifiés sur KpiCard — label/sub sur 2 lignes (fin du « label · sub »), montants MGA via `raw` (fmtMoney auto + tooltip valeur exacte) */}
         {kpis.map((k, i) => (
-          <div key={i} className="kpi kpi-enter" style={{ borderLeft: `3px solid ${k.c}`, animationDelay: `${Math.min(i * 40, 280)}ms` }} title={k.raw != null ? fmtMoneyExact(k.raw) : undefined}>
-            <div className="kpi-info">
-              <div className="kpi-val">{k.raw != null ? fmtMoney(k.raw) : k.val}</div>
-              <div className="kpi-label">{k.lbl} · {k.s}</div>
-            </div>
-          </div>
+          <KpiCard
+            key={i}
+            index={i}
+            value={k.val}
+            raw={k.raw}
+            label={k.lbl}
+            sub={k.s}
+            accent={k.c}
+          />
         ))}
       </div>
 

@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fmtDate } from '@/lib/helpers'
 import { highlight } from '@/hooks/useSearch'
 import Button from '@/components/ui/Button'
+import KpiCard from '@/components/ui/KpiCard'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 
 const STATUT_BADGE = {
@@ -141,13 +142,9 @@ export default function PretsTable({ dept }) {
       )}
 
       <div className="kpi-grid">
+        {/* Règle métier : KPI unifiés sur KpiCard — label/sub sur 2 lignes (fin du « label · sub »), bordure gauche conservée via `accent` */}
         {kpis.map((k, i) => (
-          <div key={i} className="kpi" style={{ borderLeft: `3px solid ${k.c}` }}>
-            <div className="kpi-info">
-              <div className="kpi-val">{k.val}</div>
-              <div className="kpi-label">{k.lbl} · {k.s}</div>
-            </div>
-          </div>
+          <KpiCard key={i} index={i} value={k.val} label={k.lbl} sub={k.s} accent={k.c} />
         ))}
       </div>
 

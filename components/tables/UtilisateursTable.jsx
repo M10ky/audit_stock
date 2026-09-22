@@ -9,6 +9,7 @@ import { fmtDT } from '@/lib/helpers'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { getPermissions } from '@/lib/permissions'
 import Button from '@/components/ui/Button'
+import KpiCard from '@/components/ui/KpiCard'
 import InlineSearchBar from '@/components/search/InlineSearchBar'
 
 // Colonnes de la matrice — un rôle par colonne, calculé via getPermissions()
@@ -180,12 +181,9 @@ export default function UtilisateursTable() {
   return (
     <>
       <div className="kpi-grid">
+        {/* Règle métier : KPI unifiés sur KpiCard — même ordre partout (valeur, label, sub), fin des classes kpi-lbl/kpi-s maisonnes */}
         {kpis.map((k, i) => (
-          <div key={i} className="kpi" style={{ borderLeftColor: k.c }}>
-            <div className="kpi-lbl">{k.lbl}</div>
-            <div className="kpi-val">{k.val}</div>
-            <div className="kpi-s">{k.s}</div>
-          </div>
+          <KpiCard key={i} index={i} value={k.val} label={k.lbl} sub={k.s} accent={k.c} />
         ))}
       </div>
 

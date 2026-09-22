@@ -86,11 +86,11 @@ export default function Sidebar() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}>
-            <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>CS</span>
+           <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>AR</span>
           </div>
           <div className="sidebar-logo-text">
-            <span className="sidebar-logo-title">Connecteo</span>
-            <span className="sidebar-logo-sub">Stock Manager</span>
+            <span className="sidebar-logo-title">ARGOS</span>
+            <span className="sidebar-logo-sub">Gestion de stock</span>
           </div>
           {/* Bouton fermer sur mobile */}
           <button
