@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
 import KpiCard from '@/components/ui/KpiCard'
+import ArgosLogo from '@/components/ui/ArgosLogo'
 
 export default function LoginForm() {
   const router   = useRouter()
@@ -85,21 +86,10 @@ export default function LoginForm() {
     <div className="login-page login-split">
 
       {/* ── Panneau marque (desktop) ── */}
-      <div className="login-brand">
-        <div className="brand-orb brand-orb-a"/>
-        <div className="brand-orb brand-orb-b"/>
-        <div className="brand-noise"/>
-
-        {/* Règle métier : logo réel ARGOS (même marque que le panneau formulaire) */}
+     <div className="login-brand">
+        {/* Règle métier : logo réel ARGOS — plus d'orbes flous ni de noise décorative */}
         <div className="brand-emblem">
-          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="40" height="40" rx="10" fill="white"/>
-            <path d="M8 20C8 13.373 13.373 8 20 8C26.627 8 32 13.373 32 20"
-              stroke="#0b2c46" strokeWidth="2.5" strokeLinecap="round"/>
-            <path d="M32 20C32 26.627 26.627 32 20 32C13.373 32 8 26.627 8 20"
-              stroke="#0b2c46" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 4"/>
-            <circle cx="20" cy="20" r="5" fill="#0b2c46"/>
-          </svg>
+          <ArgosLogo size={42} />
           <span>ARGOS</span>
         </div>
         <div className="brand-title">Votre stock,<br/><em>en temps réel.</em></div>
@@ -144,15 +134,7 @@ export default function LoginForm() {
         {/* ── Header ── */}
         <div className="login-header">
           <div className="login-logo">
-            {/* Remplacer par le logo base64 de index.html si disponible */}
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="40" height="40" rx="10" fill="white" fillOpacity=".15"/>
-              <path d="M8 20C8 13.373 13.373 8 20 8C26.627 8 32 13.373 32 20"
-                stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-              <path d="M32 20C32 26.627 26.627 32 20 32C13.373 32 8 26.627 8 20"
-                stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 4"/>
-              <circle cx="20" cy="20" r="5" fill="white"/>
-            </svg>
+            <ArgosLogo size={40} monochrome />
           </div>
             <div className="login-title">ARGOS</div>
             <div className="login-sub">

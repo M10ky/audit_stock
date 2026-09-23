@@ -889,31 +889,15 @@ ul { list-style: none; }
   display: flex; flex-direction: column; justify-content: space-between;
   padding: 46px 44px 32px;
   color: #eaf6f4;
-  background:
-    radial-gradient(120% 90% at 15% 0%, rgba(0,201,167,.35) 0%, transparent 55%),
-    radial-gradient(110% 90% at 95% 100%, rgba(64,124,225,.30) 0%, transparent 55%),
-    linear-gradient(160deg, #0b2c46 0%, #0e3a4f 100%);
+  background: linear-gradient(160deg, #0b2c46 0%, #0e3a4f 100%);
 }
-.brand-orb {
-  position: absolute; border-radius: 50%;
-  filter: blur(46px); opacity: .55;
-  pointer-events: none;
-  animation: brandFloat 9s ease-in-out infinite;
-}
-.brand-orb-a { width: 300px; height: 300px; top: -90px; right: -60px;
-  background: rgba(0,201,167,.5); }
-.brand-orb-b { width: 340px; height: 340px; bottom: -120px; left: -80px;
-  background: rgba(64,124,225,.5); animation-delay: -4.5s; }
-.brand-noise { position: absolute; inset: 0; pointer-events: none; opacity: .06;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/></svg>"); }
-.brand-emblem {
-  position: relative; z-index: 1;
+.brand-emblem {  position: relative; z-index: 1;
   display: inline-flex; align-items: center; gap: 12px;
   align-self: flex-start;
 }
 .brand-emblem svg {
-  width: 42px; height: 42px; border-radius: 12px; background: #fff;
-  padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  width: 42px; height: 42px; border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.2);
 }
 .brand-emblem span {
   font-size: 13px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase;
@@ -966,8 +950,7 @@ ul { list-style: none; }
 .theme-toggle:hover { border-color: var(--teal); color: var(--teal); }
 .login-brand .theme-toggle { position: absolute; top: 18px; right: 18px; }
 
-@keyframes brandFloat { 0%,100% { transform: translate3d(0,0,0) scale(1); }
-  50% { transform: translate3d(10px,-14px,0) scale(1.08); } }
+
 
 /* Règle métier : <900px → bandeau marque compact (remplace le display:none) + carte pleine largeur */
 @media (max-width: 900px) {
@@ -976,11 +959,10 @@ ul { list-style: none; }
     display: flex; flex-direction: row; align-items: center; justify-content: space-between;
     padding: 14px 20px; min-height: 64px; gap: 12px;
   }
-  .login-brand .brand-orb, .login-brand .brand-noise,
   .login-brand .brand-title, .login-brand .brand-meta,
   .login-brand .brand-points, .login-brand .brand-kpi,
   .login-brand .brand-foot { display: none; }
-  .login-brand .brand-emblem svg { width: 34px; height: 34px; padding: 5px; }
+  .login-brand .brand-emblem svg { width: 34px; height: 34px; }
 }
 .login-card {
   background: var(--card);
@@ -1038,14 +1020,14 @@ ul { list-style: none; }
   border-radius: var(--r-sm);
   font-size: 15px; font-weight: 700;
   letter-spacing: -.2px;
-  box-shadow: 0 4px 14px rgba(0,201,167,.35);
+  box-shadow: 0 2px 8px rgba(0,201,167,.25);
   transition: all var(--transition);
   cursor: pointer; border: none;
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .login-btn:hover:not(:disabled) {
   background: var(--teal-d);
-  box-shadow: 0 6px 20px rgba(0,201,167,.45);
+  box-shadow: 0 3px 10px rgba(0,201,167,.3);
   transform: translateY(-1px);
 }
 .login-btn:disabled { opacity: .6; cursor: not-allowed; }
