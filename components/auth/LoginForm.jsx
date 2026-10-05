@@ -9,7 +9,6 @@ import {
 } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
 import KpiCard from '@/components/ui/KpiCard'
-import ArgosLogo from '@/components/ui/ArgosLogo'
 
 export default function LoginForm() {
   const router   = useRouter()
@@ -89,7 +88,7 @@ export default function LoginForm() {
      <div className="login-brand">
         {/* Règle métier : logo réel ARGOS — plus d'orbes flous ni de noise décorative */}
         <div className="brand-emblem">
-          <ArgosLogo size={42} />
+          <img src="/connecteo-logo.png" alt="Connecteo" />
           <span>ARGOS</span>
         </div>
         <div className="brand-title">Votre stock,<br/><em>en temps réel.</em></div>
@@ -134,7 +133,7 @@ export default function LoginForm() {
         {/* ── Header ── */}
         <div className="login-header">
           <div className="login-logo">
-            <ArgosLogo size={40} monochrome />
+            <img src="/connecteo-logo.png" alt="Connecteo" />
           </div>
             <div className="login-title">ARGOS</div>
             <div className="login-sub">

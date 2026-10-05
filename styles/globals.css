@@ -185,10 +185,7 @@ ul { list-style: none; }
 }
 .sidebar-logo {
   width: 36px; height: 36px;
-  border-radius: 10px;
   object-fit: contain;
-  background: var(--teal);
-  padding: 4px;
 }
 .sidebar-logo-text { display: flex; flex-direction: column; }
 .sidebar-logo-title {
@@ -895,9 +892,8 @@ ul { list-style: none; }
   display: inline-flex; align-items: center; gap: 12px;
   align-self: flex-start;
 }
-.brand-emblem svg {
-  width: 42px; height: 42px; border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+.brand-emblem img {
+  height: 46px; width: auto;
 }
 .brand-emblem span {
   font-size: 13px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase;
@@ -962,7 +958,7 @@ ul { list-style: none; }
   .login-brand .brand-title, .login-brand .brand-meta,
   .login-brand .brand-points, .login-brand .brand-kpi,
   .login-brand .brand-foot { display: none; }
-  .login-brand .brand-emblem svg { width: 34px; height: 34px; }
+  .login-brand .brand-emblem img { height: 34px; }
 }
 .login-card {
   background: var(--card);
@@ -974,10 +970,12 @@ ul { list-style: none; }
 }
 .login-header { text-align: center; margin-bottom: 32px; }
 .login-logo {
-  width: 60px; height: 60px; border-radius: 16px;
   margin: 0 auto 16px;
-  background: var(--teal); padding: 10px;
-  box-shadow: 0 8px 24px rgba(0,201,167,.35);
+  text-align: center;
+}
+.login-logo img {
+  max-height: 48px; width: auto;
+  display: block; margin: 0 auto;
 }
 .login-title {
   font-size: 22px; font-weight: 800; color: var(--text);

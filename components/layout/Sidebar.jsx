@@ -17,7 +17,6 @@ import { useRouter }      from 'next/navigation'
 
 // Importation du composant DeptBanner
 import DeptBanner from '@/components/layout/DeptBanner'
-import ArgosLogo from '@/components/ui/ArgosLogo'
 
 function NavLink({ href, icon: Icon, label, badge, deptClass }) {
   const pathname = usePathname()
@@ -81,7 +80,7 @@ export default function Sidebar() {
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         {/* ── Header ── */}
         <div className="sidebar-header">
-                   <ArgosLogo size={36} className="sidebar-logo-mark" />
+                   <img src="/connecteo-logo-icon.png" alt="Connecteo" className="sidebar-logo" />
           <div className="sidebar-logo-text">
             <span className="sidebar-logo-title">Connecteo</span>
             <span className="sidebar-logo-sub">Stock Manager</span>
