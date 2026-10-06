@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useMemo } from 'react'
-import { IconUsers, IconShieldCheck, IconDownload, IconTrash, IconMail } from '@tabler/icons-react'
+import { useEffect, useMemo, useState } from 'react'
+import { IconUsers, IconShieldCheck, IconDownload, IconTrash, IconMail, IconCheck, IconX } from '@tabler/icons-react'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
@@ -60,6 +60,9 @@ export default function UtilisateursTable() {
   const updateUserRole    = useAuthStore(s => s.updateUserRole)
   const { showToast, openConfirm } = useUiStore()
 
+  // État local de la matrice des droits (modifiable, prêt pour sauvegarde future)
+  const [permMatrix, setPermMatrix] = useState({})
+
   useEffect(() => { loadAllProfiles(supabase) }, []) // eslint-disable-line
 
   // Mirrors js/settings.js renderUtilisateurs() : recherche inline (query, rôle,
@@ -85,8 +88,21 @@ export default function UtilisateursTable() {
 
   const matrixRows = useMemo(() => FEATURES.map(f => ({
     label: f.label,
+    key: f.key,
     values: ROLE_DEFS.map(rd => getPermissions({ role: rd.role, dept: rd.dept })[f.key]),
   })), [])
+
+  // Initialise l'état local de la matrice depuis les permissions calculées
+  useEffect(() => {
+    const init = {}
+    ROLE_DEFS.forEach(rd => {
+      init[rd.role] = {}
+      FEATURES.forEach(f => {
+        init[rd.role][f.key] = getPermissions({ role: rd.role, dept: rd.dept })[f.key]
+      })
+    })
+    setPermMatrix(init)
+  }, []) // eslint-disable-line
 
   // Auto-protection : on ne permet jamais à un admin de modifier son propre
   // rôle/département/statut depuis ce tableau — un mauvais clic sur sa
@@ -161,6 +177,18 @@ export default function UtilisateursTable() {
     })
   }
 
+  // Bascule un droit dans la matrice (état local)
+  const handleTogglePerm = (role, key) => {
+    setPermMatrix(m => ({
+      ...m,
+      [role]: {
+        ...m[role],
+        [key]: !m[role]?.[key],
+      },
+    }))
+    // TODO: sauvegarde côté serveur si API/RBAC persisté prévu (préservé en local pour l'instant)
+  }
+
   // Règle métier (js/export.js exportUtilisateursCSV) : export sans filtre de
   // la liste complète des profils ; ouverture réservée à l'administrateur
   // (gating page canManUsers). Département 'both' → « IT + Finance » ;
@@ -213,9 +241,23 @@ export default function UtilisateursTable() {
               {matrixRows.map((row, i) => (
                 <tr key={i}>
                   <td style={{ fontWeight: 500, fontSize: 12 }}>{row.label}</td>
-                  {row.values.map((v, j) => (
-                    <td key={j} style={{ textAlign: 'center', fontSize: 13 }}>{v ? '✅' : '—'}</td>
-                  ))}
+                  {ROLE_DEFS.map(rd => {
+                    const granted = permMatrix[rd.role]?.[row.key] ?? false
+                    return (
+                      <td key={rd.role} style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className={`perm-toggle ${granted ? 'perm-granted' : 'perm-refused'}`}
+                          aria-pressed={granted}
+                          title={`${row.label} — ${rd.label} : ${granted ? 'accordé' : 'refusé'}`}
+                          onClick={() => handleTogglePerm(rd.role, row.key)}
+                        >
+                          {granted ? <IconCheck size={14} /> : <IconX size={14} />}
+                          <span className="sr-only">{granted ? 'Accordé' : 'Refusé'}</span>
+                        </button>
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>

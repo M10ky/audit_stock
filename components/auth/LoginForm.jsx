@@ -5,10 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import {
   IconEye, IconEyeOff, IconLoader2,
   IconLock, IconMail, IconAlertCircle, IconCircleCheck,
-  IconMoon, IconSun, IconChartLine,
+  IconMoon, IconSun,
 } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
-import KpiCard from '@/components/ui/KpiCard'
 
 export default function LoginForm() {
   const router   = useRouter()
@@ -82,39 +81,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="login-page login-split">
-
-      {/* ── Panneau marque (desktop) ── */}
-     <div className="login-brand">
-        {/* Règle métier : logo réel ARGOS — plus d'orbes flous ni de noise décorative */}
-        <div className="brand-emblem">
-          <img src="/connecteo-logo.png" alt="Connecteo" />
-          <span>ARGOS</span>
-        </div>
-        <div className="brand-title">Votre stock,<br/><em>en temps réel.</em></div>
-        <div className="brand-meta">Inventaire, valorisation et alertes en une vue.</div>
-
-        {/* Règle métier : mini-carte KpiCard (signature visuelle de l'app) à la place de l'ancien graphique décoratif */}
-        <div className="brand-kpi">
-          <KpiCard
-            icon={IconChartLine}
-            color="teal"
-            accent="var(--teal)"
-            value="—"
-            label="Valeur du stock"
-            sub="Disponible après connexion"
-          />
-        </div>
-
-        <ul className="brand-points">
-          <li><IconCircleCheck size={15}/> Valorisation CUMP</li>
-          <li><IconCircleCheck size={15}/> Amortissement automatique</li>
-          <li><IconCircleCheck size={15}/> Rapports par catégorie</li>
-        </ul>
-
-        {/* Règle métier : "Connecteo" seul autorisé (entreprise), nom produit = ARGOS */}
-        <div className="brand-foot">© {new Date().getFullYear()} Connecteo</div>
-      </div>
+    <div className="login-page">
 
       {/* ── Panneau formulaire ── */}
       <div className="login-panel">
@@ -194,18 +161,22 @@ export default function LoginForm() {
               </div>
             </div>
 
-            {/* Règle métier : « Rester connecté » aligné sur la même ligne que le lien mdpo (UI only, non persisté) */}
+            {/* Règle métier : « Rester connecté » (UI only, non persisté) — rangée de boutons modernes */}
             <div className="login-options">
               <label className="login-remember">
                 <input type="checkbox" name="stay" defaultChecked={false}/>
+                <span className="remember-switch" aria-hidden="true">
+                  <span className="remember-switch-knob"/>
+                </span>
                 <span>Rester connecté</span>
               </label>
-              <a
-                href="#"
-                onClick={e => { e.preventDefault(); setMode('forgot'); setAlert(null) }}
+              <button
+                type="button"
+                className="login-ghost-btn"
+                onClick={() => { setMode('forgot'); setAlert(null) }}
               >
                 Mot de passe oublié ?
-              </a>
+              </button>
             </div>
 
             <button type="submit" className="login-btn" disabled={loading} aria-busy={loading}>

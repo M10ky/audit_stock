@@ -82,8 +82,8 @@ export default function Sidebar() {
         <div className="sidebar-header">
                    <img src="/connecteo-logo-icon.png" alt="Connecteo" className="sidebar-logo" />
           <div className="sidebar-logo-text">
-            <span className="sidebar-logo-title">Connecteo</span>
-            <span className="sidebar-logo-sub">Stock Manager</span>
+            <span className="sidebar-logo-title">ARGOS</span>
+            <span className="sidebar-logo-sub">Gestion de Stock</span>
           </div>
           {/* Bouton fermer sur mobile */}
           <button
