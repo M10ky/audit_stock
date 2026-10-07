@@ -28,7 +28,7 @@ export const useActifsStore = create((set, get) => ({
   //  Appelée AVANT toute écriture sur mouvements/produits (cf.
   //  MouvementModal) : si ça échoue ici, rien d'autre n'est écrit.
   // ══════════════════════════════════════════════════════════
-  createActifUnits: async (supabase, { prod, qty, mvtId, emplacement, manualSerials = [], prixUnit = null }) => {
+  createActifUnits: async (supabase, { prod, qty, mvtId, emplacement, manualSerials = [], prixUnit = null, mvtDate = null }) => {
     try {
       const deptCode  = prod.dept === 'IT' ? 'IT' : 'FIN'
       const catAbbr   = getCatAbbr(prod.categorie)
@@ -43,8 +43,17 @@ export const useActifsStore = create((set, get) => ({
       if (seqRErr) throw seqRErr
       if (seqRow) lastSeq = seqRow.current_seq || 0
 
-      const year = new Date().getFullYear()
       const now  = new Date().toISOString()
+      // ⚠ Règle métier : date manuelle pour mouvements historiques —
+      // `mvtDate` ({ date, ts, manual } résolu par MouvementModal) horodate
+      // date_entree (ISO transaction) et date_achat (YYYY-MM-DD de la
+      // transaction) ; absent ou null → now(), comportement historique
+      // inchangé. `now` reste l'horodatage réel (serial_sequences.updated_at)
+      // — jamais rétro-daté.
+      const ts   = mvtDate?.ts || now
+      // Règle métier : l'année du numéro CNTO suit l'année de la transaction
+      // saisie (saisie rétroactive), pas l'année réelle de la saisie.
+      const year = mvtDate?.date ? Number(mvtDate.date.slice(0, 4)) : new Date().getFullYear()
       const actifs = []
 
       for (let i = 0; i < qty; i++) {
@@ -60,11 +69,13 @@ export const useActifsStore = create((set, get) => ({
           categorie:           prod.categorie || '',
           dept:                prod.dept,
           emplacement:         emplacement || prod.emplacement || '',
-          date_entree:         now,
+          date_entree:         ts,
           // Toujours le prix de CETTE entrée précise — jamais un repli sur
           // produits.valeur_achat (champ catalogue rarement configuré).
           valeur_achat:        (prixUnit !== null && prixUnit > 0) ? prixUnit : 0,
-          date_achat:          now.slice(0, 10),
+          // Règle métier : date_achat = date LOCALE de la transaction saisie
+          // (jamais un découpage UTC d'un ISO, qui décalerait d'un jour).
+          date_achat:          mvtDate?.date || now.slice(0, 10),
           duree_amortissement: prod.duree_amortissement || 36,
           statut:              'En service',
           mouvement_entree_id: mvtId,

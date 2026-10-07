@@ -85,12 +85,14 @@ export const useDataStore = create((set, get) => ({
    * Charge TOUTES les entrées (sans filtre de date) pour calculer
    * la valeur cumulée par produit (getValeurTotaleProduit).
    * Sélection minimale : produit_id + valeur.
+   * Règle métier : `created_at` alimente le CUMP daté (getCUMPProduit avec
+   * asOfISO) pour valoriser une sortie saisie rétroactivement.
    */
   loadMouvementsEntrees: async (supabase) => {
     set({ loadingMouvementsEntrees: true })
     const { data, error } = await supabase
       .from('mouvements')
-      .select('produit_id, qty, valeur')
+      .select('produit_id, qty, valeur, created_at')
       .eq('type', 'Entrée')
     if (!error && data) set({ mouvementsEntrees: data })
     set({ loadingMouvementsEntrees: false })

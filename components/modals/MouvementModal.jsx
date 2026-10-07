@@ -6,7 +6,8 @@ import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { createClient } from '@/lib/supabase/client'
-import { getCUMPProduit, genId, isActif, fmt, fmtDate } from '@/lib/helpers'
+import { getCUMPProduit, genId, isActif, fmt, fmtDate, fmtDT, toLocalInputStr, resolveMvtDate } from '@/lib/helpers'
+import { verifierCoherenceSortie } from '@/lib/mouvements'
 import { STATUS_ACTIF } from '@/lib/actifs'
 import { useActifsStore } from '@/store/actifsStore'
 
@@ -23,7 +24,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
   const allProfiles = useAuthStore(s => s.allProfiles)
   const profile     = useAuthStore(s => s.profile)
-  const { closeModal, showToast, isSubmitting, withSubmitLock } = useUiStore()
+  const { closeModal, showToast, isSubmitting, withSubmitLock, dateFrom, dateTo, setDateFrom, setDateTo } = useUiStore()
   const { submitMvt, loadProduits, loadMouvements, loadMouvementsEntrees } = useDataStore()
   const createActifUnits      = useActifsStore(s => s.createActifUnits)
   const syncStockDepuisActifs = useActifsStore(s => s.syncStockDepuisActifs)
@@ -39,6 +40,11 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const [empl, setEmpl]       = useState('')
   const [obs, setObs]         = useState('')
   const [refDoc, setRefDoc]   = useState('')
+  // Règle métier : date et heure de la transaction — `dateInit` est figée à
+  // l'ouverture de la modale (jamais modifiée) et sert de référence pour
+  // détecter le mode manuel : dateMvt !== dateInit ⇒ saisie rétroactive.
+  const [dateInit] = useState(() => toLocalInputStr())
+  const [dateMvt, setDateMvt] = useState(dateInit)
   // Numéros de série manuels (optionnel) — un numéro par ligne, dans l'ordre
   // de saisie. Validé strictement au submit (miroir du Vanilla stock.js) :
   // si des lignes sont saisies, elles doivent être exactement au nombre de
@@ -52,6 +58,10 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
 
   const destinations  = params.destinations || []
   const emplacements  = params.emplacements?.length ? params.emplacements : ['Stock Principal']
+  // ⚠ Règle métier : fournisseur = liste paramétrée (plus de saisie libre) —
+  // options alimentées par params.fournisseurs (section Paramètres), comme
+  // Destination et Emplacement. Liste vide → select utilisable (option vide).
+  const fournisseurs  = params.fournisseurs || []
   const prod = produits.find(p => p.id === prodId)
   const cump = prod ? getCUMPProduit(prod.id, mouvementsEntrees) : 0
 
@@ -113,6 +123,31 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
 
     setLoading(true)
     const tsNow = new Date().toISOString()
+    // Règle métier : date et heure de la transaction — mode manuel si et
+    // SEULEMENT si le champ a été modifié (dateMvt !== dateInit), sinon
+    // comportement strictement historique (date = date UTC de tsNow,
+    // created_at = tsNow). Contrôles de format / anti-futur AVANT toute écriture.
+    const mvtDate = resolveMvtDate(dateMvt, dateInit, tsNow)
+    if (mvtDate.error) {
+      setLoading(false)
+      return showToast(mvtDate.error, 'error')
+    }
+    // Règle métier : une sortie rétroactive ne doit pas rendre le solde négatif
+    // à un instant T ni casser une sortie postérieure déjà saisie — contrôle
+    // APRÈS les validations existantes (produit actif, stock, actifs « En
+    // service » rechargés) et AVANT toute écriture. Entrées et sorties en mode
+    // normal : non contrôlées.
+    if (mvtType === 'sortie' && mvtDate.manual) {
+      const chk = await verifierCoherenceSortie(
+        supabase, prod, selectedActifIds,
+        selectedActifIds.length > 0 ? selectedActifIds.length : Number(qty),
+        mvtDate.ts,
+        // Relecture fraîche (loadActifs() ci-dessus) — la closure `actifs`
+        // du rendu peut être périmée dans ce contexte asynchrone.
+        useActifsStore.getState().actifs,
+      )
+      if (!chk.ok) { setLoading(false); return showToast(chk.message, 'error') }
+    }
     const mvtId = genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
     const isAmortEntree = isEntree && prod.is_amortissable
 
@@ -138,6 +173,10 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
       const { ok, message } = await createActifUnits(supabase, {
         prod, qty: Number(qty), mvtId, emplacement: empl, prixUnit: Number(prixUnit),
         manualSerials,
+        // ⚠ Règle métier : date manuelle pour mouvements historiques —
+        // date_entree / date_achat / année CNTO des actifs créés = date de
+        // la transaction. En DERNIER paramètre optionnel du payload.
+        mvtDate,
       })
       if (!ok) { setLoading(false); return showToast('Erreur (actifs) : ' + message, 'error') }
     }
@@ -171,12 +210,19 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
       if (aErr) { showToast('Erreur: ' + aErr.message, 'error'); setLoading(false); return }
 
       const actifsMap = Object.fromEntries(useActifsStore.getState().actifs.map(a => [a.id, a]))
+      // Règle métier : traçabilité de la saisie rétroactive — created_at étant
+      // écrasé par la date de la transaction, on préfixe l'observation avec la
+      // date réelle de saisie et l'auteur. Le repli « Sortie individuelle — … »
+      // est conservé APRÈS le tag.
+      const tagObs = mvtDate.manual
+        ? `[Saisie rétroactive le ${fmtDT(tsNow)} par ${userName || profile?.name || 'Système'}] `
+        : ''
       const mvtRows = selectedActifIds.map(actifId => {
         const actif = actifsMap[actifId]
         return {
           id: genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN'),
-          date: tsNow.split('T')[0],
-          created_at: tsNow,
+          date: mvtDate.date,
+          created_at: mvtDate.ts,
           type: 'Sortie',
           produit_id: prodId,
           produit_nom: prod.nom,
@@ -190,7 +236,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
           emplacement: empl,
           ref_document: refDoc,
           fournisseur,
-          observation: obs || `Sortie individuelle — ${actifId}`,
+          observation: tagObs + (obs || `Sortie individuelle — ${actifId}`),
         }
       })
       const { error: mBatchErr } = await supabase.from('mouvements').insert(mvtRows)
@@ -198,12 +244,22 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     } else {
       // Valorisation : Entrée → prix unitaire saisi ; Sortie → CUMP réel des
       // entrées (jamais un champ "prix" catalogue manuel et déconnecté).
-      const valeurUnitaire = isEntree ? Number(prixUnit) : cump
+      // Règle métier : une sortie en mode manuel est valorisée au CUMP À LA DATE
+      // de la transaction (asOfISO), avec repli sur le CUMP global si le résultat
+      // vaut 0 (produit legacy sans entrée datée). Mode normal → CUMP global.
+      const unit = (mvtDate.manual ? getCUMPProduit(prodId, mouvementsEntrees, mvtDate.ts) : 0) || cump
+      const valeurUnitaire = isEntree ? Number(prixUnit) : unit
+
+      // Règle métier : traçabilité de la saisie rétroactive (created_at écrasé
+      // par la date de transaction → date réelle de saisie dans l'observation).
+      const tagObs = mvtDate.manual
+        ? `[Saisie rétroactive le ${fmtDT(tsNow)} par ${userName || profile?.name || 'Système'}] `
+        : ''
 
       const { error: mErr } = await submitMvt(supabase, {
         id: mvtId,
-        date: tsNow.split('T')[0],
-        created_at: tsNow,
+        date: mvtDate.date,
+        created_at: mvtDate.ts,
         type: isEntree ? 'Entrée' : 'Sortie',
         produit_id: prodId,
         produit_nom: prod.nom,
@@ -216,7 +272,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
         emplacement: empl,
         ref_document: refDoc,
         fournisseur,
-        observation: obs,
+        observation: tagObs + obs,
       })
       if (mErr) { setLoading(false); return showToast('Erreur: ' + mErr.message, 'error') }
     }
@@ -229,10 +285,24 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
 
     setLoading(false)
 
+    // Règle métier : visibilité après saisie rétroactive — le filtrage de période
+    // est CÔTÉ CLIENT (uiStore.dateFrom/dateTo, lus par useDateFilter). Si la date
+    // du mouvement sort de la période affichée, on élargit celle-ci pour qu'il
+    // soit visible. Filtre inactif (valeurs vides) → rien à changer.
+    let periodeElargie = false
+    if (mvtDate.manual) {
+      if (dateFrom && mvtDate.date < dateFrom) { setDateFrom(mvtDate.date); periodeElargie = true }
+      if (dateTo   && mvtDate.date > dateTo)   { setDateTo(mvtDate.date);   periodeElargie = true }
+    }
+
     // Mirrors js/stock.js submitMvt() : toasts spécifiques selon le type —
     // entrée amortissable (actifs créés), sortie amortissable (liste des
     // actifs sortis), sinon message générique avec la quantité effective.
-    if (isAmortEntree) {
+    // Règle métier : si la période a été élargie, le toast le signale (remplace
+    // le toast de succès — un seul toast visible à la fois).
+    if (periodeElargie) {
+      showToast(`Mouvement enregistré au ${mvtDate.date.slice(8, 10)}/${mvtDate.date.slice(5, 7)}/${mvtDate.date.slice(0, 4)} — période d'affichage élargie`)
+    } else if (isAmortEntree) {
       showToast(`Entrée enregistrée + ${qty} actif(s) créé(s)`)
     } else if (mvtType === 'sortie' && selectedActifIds.length > 0) {
       const list = selectedActifIds.length <= 3
@@ -274,6 +344,16 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
           <input className="form-input" value={isEntree ? 'Entrée' : 'Sortie'} disabled
             style={{ color: isEntree ? 'var(--green)' : 'var(--red)', fontWeight: 700 }} />
         </div>
+      </div>
+
+      {/* Règle métier : date et heure de la transaction — saisie rétroactive */}
+      <div className="form-group" style={{ maxWidth: 280 }}>
+        <label className="form-label">Date et heure de la transaction</label>
+        <input
+          className="form-input" type="datetime-local" value={dateMvt} max={dateInit}
+          onChange={e => setDateMvt(e.target.value)}
+        />
+        <div className="form-hint">Maintenant par défaut — modifiez pour saisir un ancien mouvement</div>
       </div>
 
       <div className="form-group">
@@ -394,7 +474,11 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Fournisseur</label>
-              <input className="form-input" value={fournisseur} onChange={e => setFournisseur(e.target.value)} placeholder="Nom du fournisseur…" />
+              {/* ⚠ Règle métier : fournisseur = liste paramétrée (plus de saisie libre) */}
+              <select className="form-select" value={fournisseur} onChange={e => setFournisseur(e.target.value)}>
+                <option value="">— Sélectionner un fournisseur —</option>
+                {fournisseurs.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label">Réf. document / bon de livraison</label>
