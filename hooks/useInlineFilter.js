@@ -44,7 +44,7 @@ export function useInlineFilter(pageKey) {
         case 'mouvement':
           if (q && !matchesQuery([
             item.produit_nom, item.user_name, item.destination,
-            item.fournisseur, item.ref_document, item.emplacement, item.id,
+            item.fournisseur, item.ref_document, item.emplacement, item.id, item.actif_id,
           ], q)) return false
           if (mvtType && item.type !== mvtType) return false
           break
@@ -55,7 +55,7 @@ export function useInlineFilter(pageKey) {
           if (statDem && item.statut  !== statDem)   return false
           break
         case 'historique':
-          if (q && !matchesQuery([item.produit, item.actor, item.detail, item.lieu, item.id], q))
+          if (q && !matchesQuery([item.produit, item.actor, item.detail, item.lieu, item.id, item.actifId], q))
             return false
           break
         case 'actif':

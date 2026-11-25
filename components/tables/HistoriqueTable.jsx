@@ -1,10 +1,13 @@
 'use client'
-import { IconHistory, IconDownload } from '@tabler/icons-react'
+import { IconHistory, IconDownload, IconPencil } from '@tabler/icons-react'
 import { useDataStore }    from '@/store/dataStore'
+import { useUiStore }      from '@/store/uiStore'
+import { useAuthStore }    from '@/store/authStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useDateFilter }   from '@/hooks/useDateFilter'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { fmtDTSplit, fmtDT } from '@/lib/helpers'
+import { canEditMvt }      from '@/lib/permissions'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
@@ -17,13 +20,16 @@ export default function HistoriqueTable() {
   const mouvements = useDataStore(s => s.mouvements)
   const demandes   = useDataStore(s => s.demandes)
   const perm = usePermissions()
+  const user = useAuthStore(s => s.user)
+  const profile = useAuthStore(s => s.profile)
+  const { openModal } = useUiStore()
   const { filterByDate, hasFilter } = useDateFilter()
   const { filterState, setFilterState, applyFilters } = useInlineFilter('historique')
 
   const allItems = [
     ...mouvements.map(m => ({
-      id: m.id, dept: m.dept, src: 'Mouvement', label: m.type,
-      produit: m.produit_nom, qty: m.qty,
+      id: m.id, dept: m.dept, src: 'Mouvement', label: m.type, mvt: m,
+      produit: m.produit_nom, actifId: m.actif_id || null, qty: m.qty,
       lieu: m.emplacement || m.destination,
       actor: m.user_name, detail: m.observation,
       created_at: m.created_at || m.date,
@@ -100,13 +106,13 @@ export default function HistoriqueTable() {
             <thead>
               <tr>
                 <th>Date & Heure</th><th>Dépt</th><th>Catégorie</th><th>Type/Statut</th>
-                <th>Produit</th><th>Qté</th><th>Empl./Dest.</th><th>Acteur</th><th>Détail</th>
+                <th>Produit</th><th>Qté</th><th>Empl./Dest.</th><th>Acteur</th><th>Détail</th><th></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={10}>
                     <div className="empty-state">
                       <p>Aucune opération{hasFilter ? ' sur la période' : ''} ne correspond</p>
                     </div>
@@ -140,6 +146,11 @@ export default function HistoriqueTable() {
                     </td>
                     <td style={{ fontWeight: 500 }}>
                       <span dangerouslySetInnerHTML={highlight(h.produit || '', q)} />
+                      {h.actifId && (
+                        <code className="actif-id" style={{ marginTop: 2, display: 'inline-block' }}>
+                          <span dangerouslySetInnerHTML={highlight(h.actifId, q)} />
+                        </code>
+                      )}
                     </td>
                     <td style={{ fontWeight: 700 }}>{h.qty}</td>
                     <td className="text-muted">
@@ -149,7 +160,20 @@ export default function HistoriqueTable() {
                       <span dangerouslySetInnerHTML={highlight(h.actor, q)} />
                     </td>
                     <td className="text-muted" style={{ maxWidth: 140, fontSize: 12 }}>
-                      <span dangerouslySetInnerHTML={highlight((h.detail || '').slice(0, 60), q)} />
+                      <span dangerouslySetInnerHTML={highlight(h.detail || '', q).slice(0, 60)} />
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {h.src === 'Mouvement' && canEditMvt(h.mvt, user, profile, perm) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Corriger le mouvement"
+                          aria-label="Corriger le mouvement"
+                          onClick={() => openModal('edit-mvt', { mv: h.mvt })}
+                        >
+                          <IconPencil size={14} />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 )

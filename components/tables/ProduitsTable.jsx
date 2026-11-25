@@ -22,7 +22,7 @@ export default function ProduitsTable({ dept }) {
   const loadProduits      = useDataStore(s => s.loadProduits)
   const deleteProduit     = useDataStore(s => s.deleteProduit)
   const toggleProductActif = useDataStore(s => s.toggleProductActif)
-  const { openModal, openConfirm, showToast } = useUiStore()
+  const { openModal, openConfirm, showToast, withSubmitLock } = useUiStore()
   const perm = usePermissions()
 
   const pageKey = `stock-${dept === 'IT' ? 'it' : 'fin'}`
@@ -46,11 +46,11 @@ export default function ProduitsTable({ dept }) {
       title: `Supprimer "${p.nom}" ?`,
       message: 'Cette action est irréversible. Les mouvements existants seront conservés.',
       danger: true,
-      onConfirm: async () => {
+      onConfirm: () => withSubmitLock(async () => {
         const { error } = await deleteProduit(supabase, p.id)
         if (error) showToast('Erreur: ' + error.message, 'error')
         else { showToast(`"${p.nom}" supprimé`); await loadProduits(supabase, dept) }
-      },
+      }),
     })
   }
 
@@ -64,14 +64,14 @@ export default function ProduitsTable({ dept }) {
         ? 'Le produit ne sera plus sélectionnable dans les nouveaux mouvements et demandes, et n\'apparaîtra plus dans le Dashboard (alertes/KPIs).'
         : 'Le produit sera de nouveau sélectionnable et apparaîtra dans le Dashboard.',
       danger: !currentlyActif,
-      onConfirm: async () => {
+      onConfirm: () => withSubmitLock(async () => {
         const { error } = await toggleProductActif(supabase, p.id, !currentlyActif)
         if (error) showToast('Erreur: ' + error.message, 'error')
         else {
           showToast(currentlyActif ? `"${p.nom}" désactivé` : `"${p.nom}" réactivé`)
           await loadProduits(supabase, dept)
         }
-      },
+      }),
     })
   }
 

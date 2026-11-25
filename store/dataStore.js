@@ -193,6 +193,17 @@ export const useDataStore = create((set, get) => ({
     return { error, id }
   },
 
+  // Mirrors js/stock.js submitEditMvt() : correction PARTIELLE d'un mouvement.
+  // Seuls les champs autorisés sont envoyés — qty / produit_id / type /
+  // user_id / created_at restent intouchables. Pas de RPC.
+  updateMouvementPartial: async (supabase, id, payload) => {
+    const { error } = await supabase
+      .from('mouvements')
+      .update(payload)
+      .eq('id', id)
+    return { error }
+  },
+
   // ══════════════════════════════════════════════════════════
   //  DEMANDES — MUTATIONS
   // ══════════════════════════════════════════════════════════

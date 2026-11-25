@@ -58,12 +58,19 @@ export default function UtilisateursTable() {
   const loadAllProfiles   = useAuthStore(s => s.loadAllProfiles)
   const toggleUserActive  = useAuthStore(s => s.toggleUserActive)
   const updateUserRole    = useAuthStore(s => s.updateUserRole)
-  const { showToast, openConfirm } = useUiStore()
+  const { showToast, openConfirm, withSubmitLock } = useUiStore()
 
-  // État local de la matrice des droits (modifiable, prêt pour sauvegarde future)
-  const [permMatrix, setPermMatrix] = useState({})
+  // Ligne en cours de mutation : feedback loading par ligne + anti-double-clic
+  // (les <Button loading> de la ligne sont désactivés pendant le fetch)
+  const [busyRowId, setBusyRowId] = useState(null)
 
-  useEffect(() => { loadAllProfiles(supabase) }, []) // eslint-disable-line
+  useEffect(() => {
+    // Toast d'erreur si le chargement échoue (RLS / réseau) — sinon la liste
+    // reste silencieusement vide et on croit à un bug de filtre.
+    loadAllProfiles(supabase).then(({ error }) => {
+      if (error) showToast('Erreur chargement des profils : ' + error.message, 'error')
+    })
+  }, []) // eslint-disable-line
 
   // Mirrors js/settings.js renderUtilisateurs() : recherche inline (query, rôle,
   // statut) sur la même liste de profils — clé 'utilisateur' de useInlineFilter.
@@ -92,18 +99,6 @@ export default function UtilisateursTable() {
     values: ROLE_DEFS.map(rd => getPermissions({ role: rd.role, dept: rd.dept })[f.key]),
   })), [])
 
-  // Initialise l'état local de la matrice depuis les permissions calculées
-  useEffect(() => {
-    const init = {}
-    ROLE_DEFS.forEach(rd => {
-      init[rd.role] = {}
-      FEATURES.forEach(f => {
-        init[rd.role][f.key] = getPermissions({ role: rd.role, dept: rd.dept })[f.key]
-      })
-    })
-    setPermMatrix(init)
-  }, []) // eslint-disable-line
-
   // Auto-protection : on ne permet jamais à un admin de modifier son propre
   // rôle/département/statut depuis ce tableau — un mauvais clic sur sa
   // propre ligne pourrait le verrouiller hors de la page qui permet de
@@ -116,25 +111,44 @@ export default function UtilisateursTable() {
     openConfirm({
       title: `Changer le rôle de « ${p.name} » ?`,
       message: `${p.role} → ${newRole}. Ce changement prend effet immédiatement à la prochaine connexion de l'utilisateur.`,
-      onConfirm: async () => {
-        const { error } = await updateUserRole(supabase, p.id, { role: newRole })
-        if (error) return showToast('Erreur : ' + error.message, 'error')
-        showToast(`Rôle de « ${p.name} » → ${newRole}`)
-      },
+      onConfirm: () => withSubmitLock(async () => {
+        setBusyRowId(p.id)
+        try {
+          const { error } = await updateUserRole(supabase, p.id, { role: newRole })
+          if (error) return showToast('Erreur : ' + error.message, 'error')
+          showToast(`Rôle de « ${p.name} » → ${newRole}`)
+        } finally {
+          setBusyRowId(null)
+        }
+      }),
     })
   }
 
-  const handleDeptChange = async (p, newDept) => {
+  const handleDeptChange = (p, newDept) => {
     if (newDept === p.dept) return
-    const { error } = await updateUserRole(supabase, p.id, { dept: newDept })
-    if (error) return showToast('Erreur : ' + error.message, 'error')
-    showToast(`Département de ${p.name} mis à jour → ${newDept}`)
+    withSubmitLock(async () => {
+      setBusyRowId(p.id)
+      try {
+        const { error } = await updateUserRole(supabase, p.id, { dept: newDept })
+        if (error) return showToast('Erreur : ' + error.message, 'error')
+        showToast(`Département de ${p.name} mis à jour → ${newDept}`)
+      } finally {
+        setBusyRowId(null)
+      }
+    })
   }
 
-  const handleToggleActive = async (p) => {
-    const { error } = await toggleUserActive(supabase, p.id, !p.is_active)
-    if (error) return showToast('Erreur : ' + error.message, 'error')
-    showToast(p.is_active ? `${p.name} désactivé` : `${p.name} activé`)
+  const handleToggleActive = (p) => {
+    withSubmitLock(async () => {
+      setBusyRowId(p.id)
+      try {
+        const { error } = await toggleUserActive(supabase, p.id, !p.is_active)
+        if (error) return showToast('Erreur : ' + error.message, 'error')
+        showToast(p.is_active ? `${p.name} désactivé` : `${p.name} activé`)
+      } finally {
+        setBusyRowId(null)
+      }
+    })
   }
 
   // Mirrors js/settings.js resetUserPassword() : envoi d'un e-mail de
@@ -145,16 +159,23 @@ export default function UtilisateursTable() {
     openConfirm({
       title: `Réinitialiser le mot de passe de ${p.email} ?`,
       message: "Un e-mail avec un lien de réinitialisation sera envoyé. L'utilisateur devra cliquer sur le lien pour définir un nouveau mot de passe.",
-      onConfirm: async () => {
-        const res = await fetch('/api/users/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: p.email, redirectTo: window.location.origin }),
-        })
-        const data = await res.json()
-        if (!res.ok || data?.error) return showToast('Erreur: ' + (data?.error || 'échec envoi'), 'error')
-        showToast(`Lien de réinitialisation envoyé à ${p.email}`)
-      },
+      onConfirm: () => withSubmitLock(async () => {
+        setBusyRowId(p.id)
+        try {
+          const res = await fetch('/api/users/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: p.email, redirectTo: window.location.origin }),
+          })
+          const data = await res.json()
+          if (!res.ok || data?.error) return showToast('Erreur: ' + (data?.error || 'échec envoi'), 'error')
+          showToast(`Lien de réinitialisation envoyé à ${p.email}`)
+        } catch (e) {
+          showToast('Erreur réseau : ' + (e?.message || 'échec envoi'), 'error')
+        } finally {
+          setBusyRowId(null)
+        }
+      }),
     })
   }
 
@@ -167,26 +188,21 @@ export default function UtilisateursTable() {
       title: `Supprimer le profil de « ${p.name} » ?`,
       message: 'Le profil sera retiré de l’application et le compte Supabase Auth supprimé. Cette action est irréversible.',
       danger: true,
-      onConfirm: async () => {
-        const res = await fetch(`/api/users/${p.id}`, { method: 'DELETE' })
-        const data = await res.json()
-        if (!res.ok || data?.error) return showToast('Erreur: ' + (data?.error || 'échec suppression'), 'error')
-        showToast(`Profil de « ${p.name} » supprimé`)
-        await loadAllProfiles(supabase)
-      },
+      onConfirm: () => withSubmitLock(async () => {
+        setBusyRowId(p.id)
+        try {
+          const res = await fetch(`/api/users/${p.id}`, { method: 'DELETE' })
+          const data = await res.json()
+          if (!res.ok || data?.error) return showToast('Erreur: ' + (data?.error || 'échec suppression'), 'error')
+          showToast(`Profil de « ${p.name} » supprimé`)
+          await loadAllProfiles(supabase)
+        } catch (e) {
+          showToast('Erreur réseau : ' + (e?.message || 'échec suppression'), 'error')
+        } finally {
+          setBusyRowId(null)
+        }
+      }),
     })
-  }
-
-  // Bascule un droit dans la matrice (état local)
-  const handleTogglePerm = (role, key) => {
-    setPermMatrix(m => ({
-      ...m,
-      [role]: {
-        ...m[role],
-        [key]: !m[role]?.[key],
-      },
-    }))
-    // TODO: sauvegarde côté serveur si API/RBAC persisté prévu (préservé en local pour l'instant)
   }
 
   // Règle métier (js/export.js exportUtilisateursCSV) : export sans filtre de
@@ -225,7 +241,12 @@ export default function UtilisateursTable() {
 
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="card-header">
-          <div className="card-header-title"><IconShieldCheck size={16} /> Matrice des droits par rôle</div>
+          <div className="card-header-title">
+            <IconShieldCheck size={16} /> Matrice des droits par rôle
+            <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text3)', marginLeft: 8 }}>
+              lecture seule — calculée depuis lib/permissions.js
+            </span>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="table">
@@ -241,20 +262,20 @@ export default function UtilisateursTable() {
               {matrixRows.map((row, i) => (
                 <tr key={i}>
                   <td style={{ fontWeight: 500, fontSize: 12 }}>{row.label}</td>
-                  {ROLE_DEFS.map(rd => {
-                    const granted = permMatrix[rd.role]?.[row.key] ?? false
+                  {ROLE_DEFS.map((rd, ri) => {
+                    const granted = row.values[ri] ?? false
                     return (
                       <td key={rd.role} style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className={`perm-toggle ${granted ? 'perm-granted' : 'perm-refused'}`}
-                          aria-pressed={granted}
+                        {/* Lecture seule : aucun onclick — l'état est dérivé de
+                            getPermissions(), un « toggle » localement cliquable
+                            donnerait l'illusion d'une sauvegarde inexistante. */}
+                        <span
+                          className={`perm-toggle perm-static ${granted ? 'perm-granted' : 'perm-refused'}`}
                           title={`${row.label} — ${rd.label} : ${granted ? 'accordé' : 'refusé'}`}
-                          onClick={() => handleTogglePerm(rd.role, row.key)}
                         >
                           {granted ? <IconCheck size={14} /> : <IconX size={14} />}
                           <span className="sr-only">{granted ? 'Accordé' : 'Refusé'}</span>
-                        </button>
+                        </span>
                       </td>
                     )
                   })}
@@ -320,7 +341,7 @@ export default function UtilisateursTable() {
                     <td>
                       <select
                         className="form-select" style={{ width: 'auto', padding: '4px 8px', fontSize: 12 }}
-                        value={p.role} disabled={isSelf}
+                        value={p.role} disabled={isSelf || busyRowId === p.id}
                         onChange={e => handleRoleChange(p, e.target.value)}
                       >
                         {ROLES_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
@@ -329,7 +350,7 @@ export default function UtilisateursTable() {
                     <td>
                       <select
                         className="form-select" style={{ width: 'auto', padding: '4px 8px', fontSize: 12 }}
-                        value={p.dept} disabled={isSelf}
+                        value={p.dept} disabled={isSelf || busyRowId === p.id}
                         onChange={e => handleDeptChange(p, e.target.value)}
                       >
                         {DEPT_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
@@ -349,20 +370,21 @@ export default function UtilisateursTable() {
                         ? <span className="text-muted" style={{ fontSize: 11 }}>Compte actuel</span>
                         : (
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <button
-                              className="btn btn-sm btn-outline"
-                              style={{ borderColor: p.is_active ? 'var(--red)' : 'var(--green)', color: p.is_active ? 'var(--red)' : 'var(--green)' }}
-                              onClick={() => handleToggleActive(p)}
-                            >
+                            <Button size="sm" variant={p.is_active ? 'danger' : 'outline'}
+                              style={p.is_active ? undefined : { borderColor: 'var(--green)', color: 'var(--green)' }}
+                              loading={busyRowId === p.id}
+                              onClick={() => handleToggleActive(p)}>
                               {p.is_active ? 'Désactiver' : 'Activer'}
-                            </button>
+                            </Button>
                             {p.email && (
                               <Button size="sm" variant="outline" icon={IconMail}
+                                loading={busyRowId === p.id}
                                 onClick={() => handleResetPassword(p)}>
                                 Réinit. mdp
                               </Button>
                             )}
                             <Button size="icon" variant="outline" icon={IconTrash}
+                              loading={busyRowId === p.id}
                               onClick={() => handleDelete(p)} title="Supprimer le profil" />
                           </div>
                         )}

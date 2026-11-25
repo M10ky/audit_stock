@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, requireManUsers } from '@/lib/supabase/server'
 
 /**
  * Réinitialisation du mot de passe (admin).
@@ -11,6 +11,11 @@ import { createAdminClient } from '@/lib/supabase/server'
  * ramène l'utilisateur dans l'application une fois le nouveau mot de passe saisi.
  */
 export async function POST(request) {
+  // Garde serveur : session authentifiée + rôle Admin (canManUsers) — évite
+  // que n'importe quel utilisateur authentifié déclenche des e-mails de reset.
+  const guard = await requireManUsers()
+  if (guard.error) return guard.error
+
   const body = await request.json().catch(() => null)
   const email = body?.email
   if (!email || typeof email !== 'string' || !email.includes('@')) {

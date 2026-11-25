@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, requireManUsers } from '@/lib/supabase/server'
 
 /**
  * Suppression d'un utilisateur (admin).
@@ -15,6 +15,14 @@ import { createAdminClient } from '@/lib/supabase/server'
 export async function DELETE(_request, { params }) {
   const { id } = params
   if (!id) return NextResponse.json({ error: 'ID utilisateur manquant' }, { status: 400 })
+
+  // Garde serveur : session authentifiée + rôle Admin (canManUsers). Le
+  // middleware ne vérifie qu'une session existante, pas le rôle.
+  const guard = await requireManUsers()
+  if (guard.error) return guard.error
+  if (id === guard.profile.id) {
+    return NextResponse.json({ error: 'Impossible de supprimer son propre compte' }, { status: 400 })
+  }
 
   const supabase = createAdminClient()
 

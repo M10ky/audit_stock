@@ -13,7 +13,7 @@
     "@supabase/supabase-js": "^2.108.1",
     "@tabler/icons-react": "^3.44.0",
     "chart.js": "^4.5.1",
-    "next": "14.2.35",
+    "next": "^16.4.6",
     "react": "^18",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^18",
@@ -21,6 +21,6 @@
   },
   "devDependencies": {
     "eslint": "^8",
-    "eslint-config-next": "14.2.35"
+    "eslint-config-next": "^16.4.6"
   }
 }

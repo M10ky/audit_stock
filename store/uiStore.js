@@ -10,7 +10,7 @@ export const useUiStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
   //  MODALES
   //  modal = null | { type, dept?, data? }
-  //  types : 'entree' | 'sortie' | 'add-produit' | 'edit-produit'
+  //  types : 'entree' | 'sortie' | 'edit-mvt' | 'add-produit' | 'edit-produit'
   //         | 'demande' | 'confirm-delete' | 'confirm-action'
   // ══════════════════════════════════════════════════════════
   modal: null,

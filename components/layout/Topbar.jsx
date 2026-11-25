@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { IconSearch, IconMenu2, IconX, IconSun, IconMoon } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
+import Button from '@/components/ui/Button'
 
 // Mapping route → titre
 const TITLES = {
@@ -59,9 +60,9 @@ export default function Topbar() {
   return (
     <header className="topbar">
       {/* Burger mobile */}
-      <button className="btn btn-ghost btn-icon topbar-burger" onClick={toggleSidebar} title="Menu">
+      <Button variant="ghost" size="icon" className="topbar-burger" onClick={toggleSidebar} title="Menu">
         <IconMenu2 size={20} />
-      </button>
+      </Button>
 
       <h1 className="topbar-title">{title}</h1>
 
@@ -83,33 +84,33 @@ export default function Topbar() {
               title="Date de fin"
             />
             {hasFilter && (
-              <button
-                className="btn btn-ghost btn-icon btn-sm"
+              <Button
+                variant="ghost" size="icon" className="btn-sm"
                 onClick={clearDateFilter}
                 title="Effacer le filtre"
               >
                 <IconX size={14} />
-              </button>
+              </Button>
             )}
           </div>
         )}
 
         {/* Bascule clair/sombre */}
-        <button
-          className="btn btn-ghost btn-icon theme-toggle"
+        <Button
+          variant="ghost" size="icon" className="theme-toggle"
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
           aria-label={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
         >
           {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-        </button>
+        </Button>
 
         {/* Bouton recherche globale */}
-        <button className="topbar-search-btn" onClick={openSearch}>
+        <Button variant="ghost" className="topbar-search-btn" onClick={openSearch}>
           <IconSearch size={14} />
           <span>Rechercher</span>
           <span className="kbd">Ctrl K</span>
-        </button>
+        </Button>
       </div>
     </header>
   )

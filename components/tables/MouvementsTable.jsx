@@ -6,7 +6,7 @@ import { useUiStore }      from '@/store/uiStore'
 import { useDateFilter }   from '@/hooks/useDateFilter'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
-import { fmt, fmtDT, fmtDTSplit, fmtMoney } from '@/lib/helpers'
+import { fmt, fmtDT, fmtDTSplit } from '@/lib/helpers'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { highlight }       from '@/hooks/useSearch'
 import Button              from '@/components/ui/Button'
@@ -101,14 +101,14 @@ export default function MouvementsTable({ dept }) {
             <thead>
               <tr>
                 <th>ID</th><th>Date & Heure</th><th>Type</th><th>Produit</th>
-                <th>Qté</th><th>Valeur</th><th>Emplacement</th><th>Destination</th>
+                <th>Qté</th><th>Prix Unit.</th><th>Valeur Totale</th><th>Emplacement</th><th>Destination</th>
                 <th>Fournisseur</th><th>Réf. Doc.</th><th>Agent</th><th>Observation</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={12}>
+                  <td colSpan={13}>
                     <div className="empty-state">
                       <p>Aucun mouvement{hasFilter ? ' sur la période' : ''} ne correspond</p>
                     </div>
@@ -127,9 +127,17 @@ export default function MouvementsTable({ dept }) {
                     <td><TypeBadge type={m.type} /></td>
                     <td className="cell-name">
                       <span dangerouslySetInnerHTML={highlight(m.produit_nom, q)} />
+                      {m.actif_id && (
+                        <code className="actif-id" style={{ marginTop: 2, display: 'inline-block' }}>
+                          <span dangerouslySetInnerHTML={highlight(m.actif_id, q)} />
+                        </code>
+                      )}
                     </td>
                     <td style={{ fontWeight: 700 }}>{m.qty}</td>
-                    <td className="text-muted" title={`${fmt(m.valeur)} MGA`}>{fmtMoney(m.valeur)}</td>
+                    <td style={{ fontSize: 11, color: 'var(--text2)' }}>
+                      {m.qty > 0 ? fmt(Math.round((m.valeur || 0) / m.qty)) : 0} MGA
+                    </td>
+                    <td style={{ fontWeight: 700 }} title={`${fmt(m.valeur)} MGA`}>{fmt(m.valeur)} MGA</td>
                     <td className="text-muted">
                       <span dangerouslySetInnerHTML={highlight(m.emplacement || '—', q)} />
                     </td>

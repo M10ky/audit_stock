@@ -305,7 +305,10 @@ ul { list-style: none; }
 .topbar-actions {
   display: flex; align-items: center; gap: 8px;
 }
-.topbar-search-btn {
+/* Spécificité .btn.topbar-search-btn : le composant <Button> ajoute les
+   classes .btn/.btn-ghost (déclarées plus bas) — sans ce préfixe elles
+   écraseraient background/border/padding de la recherche. */
+.btn.topbar-search-btn {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 14px;
   background: var(--bg);
@@ -684,6 +687,9 @@ ul { list-style: none; }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 .btn-icon { padding: 7px; }
 .btn-spinner { animation: spin .7s linear infinite; }
+/* Hover explicite après les règles .btn-ghost:hover (même spécificité,
+   dernière déclaration l'emporte). */
+.btn.topbar-search-btn:hover:not(:disabled) { border-color: var(--teal); color: var(--text2); }
 
 /* ════════════════════════════════════════════════════════════════
    FORMULAIRES
@@ -903,7 +909,9 @@ ul { list-style: none; }
   color: #fff;
   backdrop-filter: blur(6px);
 }
-.login-theme-toggle:hover {
+/* :not(:disabled) → même spécificité que .btn-ghost:hover:not(:disabled),
+   déclarée après : le survol verre dépoli l'emporte. */
+.login-theme-toggle:hover:not(:disabled) {
   background: rgba(255,255,255,.18);
   border-color: rgba(255,255,255,.55);
   color: #fff;
@@ -1012,7 +1020,8 @@ ul { list-style: none; }
   white-space: nowrap; cursor: pointer;
   transition: background var(--transition), border-color var(--transition), color var(--transition), transform var(--transition);
 }
-.login-ghost-btn:hover {
+/* :not(:disabled) → bat .btn-outline:hover:not(:disabled) (déclarée avant). */
+.login-ghost-btn:hover:not(:disabled) {
   background: var(--teal-xl); border-color: var(--teal); color: var(--teal-d);
 }
 .login-ghost-btn:active { transform: translateY(1px); }
@@ -1224,6 +1233,16 @@ ul { list-style: none; }
   border-color: var(--border);
   background: var(--card);
   color: var(--text3);
+}
+/* Matrice des droits en lecture seule (UtilisateursTable) : aucune
+   affordance hover/clic — l'état est dérivé de getPermissions(). */
+.perm-toggle.perm-static,
+.perm-toggle.perm-static:hover {
+  cursor: default; border-color: var(--border); background: var(--card); color: var(--text3);
+}
+.perm-toggle.perm-static.perm-granted,
+.perm-toggle.perm-static.perm-granted:hover {
+  border-color: var(--teal); background: var(--teal-l); color: var(--teal-d);
 }
 
 /* ════════════════════════════════════════════════════════════════

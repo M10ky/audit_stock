@@ -1,6 +1,7 @@
 'use client'
 import { useUiStore } from '@/store/uiStore'
 import MouvementModal from './MouvementModal'
+import MouvementEditModal from './MouvementEditModal'
 import ProduitAddModal from './ProduitAddModal'
 import ProduitEditModal from './ProduitEditModal'
 import DemandeModal from './DemandeModal'
@@ -20,6 +21,8 @@ export default function ModalRoot() {
       return <MouvementModal mvtType={modal.type} dept={modal.dept} prodId={modal.prodId} />
     case 'add-produit':
       return <ProduitAddModal dept={modal.dept} />
+    case 'edit-mvt':
+      return <MouvementEditModal mv={modal.mv} />
     case 'edit-produit':
       return <ProduitEditModal dept={modal.dept} produit={modal.prod} />
     case 'demande':

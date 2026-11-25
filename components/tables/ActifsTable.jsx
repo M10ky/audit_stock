@@ -27,7 +27,7 @@ export default function ActifsTable({ dept }) {
   const supabase = createClient()
   const perm = usePermissions()
   const profile = useAuthStore(s => s.profile)
-  const { openModal, openConfirm, showToast } = useUiStore()
+  const { openModal, openConfirm, showToast, withSubmitLock } = useUiStore()
   const loadProduits = useDataStore(s => s.loadProduits)
 
   const actifs                = useActifsStore(s => s.actifs.filter(a => a.dept === dept))
@@ -81,31 +81,31 @@ export default function ActifsTable({ dept }) {
     await loadProduits(supabase, dept)
   }
 
-  const handleHorsService = async (a) => {
+  const handleHorsService = (a) => withSubmitLock(async () => {
     const { error } = await horsServiceActif(supabase, a, profile)
     if (error) return showToast('Erreur : ' + error.message, 'error')
     showToast(`"${a.id}" mis hors service`)
     await afterActifChange(a.produit_id)
-  }
+  })
 
-  const handleReactiver = async (a) => {
+  const handleReactiver = (a) => withSubmitLock(async () => {
     const { error } = await reactiverActif(supabase, a, profile)
     if (error) return showToast(error.message, 'error')
     showToast(`"${a.id}" réactivé en service`)
     await afterActifChange(a.produit_id)
-  }
+  })
 
   const handleReformer = (a) => {
     openConfirm({
       title: `Réformer "${a.id}" ?`,
       message: `L'actif "${a.produit_nom}" sera définitivement réformé. Cette action est irréversible.`,
       danger: true,
-      onConfirm: async () => {
+      onConfirm: () => withSubmitLock(async () => {
         const { error } = await reformerActif(supabase, a, profile)
         if (error) return showToast('Erreur : ' + error.message, 'error')
         showToast(`"${a.id}" réformé`)
         await afterActifChange(a.produit_id)
-      },
+      }),
     })
   }
 
@@ -113,13 +113,13 @@ export default function ActifsTable({ dept }) {
     openConfirm({
       title: `Réintégrer "${a.id}" en service ?`,
       message: `L'actif "${a.produit_nom}" redeviendra disponible et le stock du produit sera réincrémenté de 1.`,
-      onConfirm: async () => {
+      onConfirm: () => withSubmitLock(async () => {
         const { error } = await reintegrerActif(supabase, a.id, profile)
         if (error) return showToast('Erreur : ' + error.message, 'error')
         showToast(`"${a.id}" réintégré — remis en service`)
         await loadActifs(supabase)
         await loadProduits(supabase, dept)
-      },
+      }),
     })
   }
 

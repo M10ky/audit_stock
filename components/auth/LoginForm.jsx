@@ -3,11 +3,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  IconEye, IconEyeOff, IconLoader2,
+  IconEye, IconEyeOff,
   IconLock, IconMail, IconAlertCircle, IconCircleCheck,
   IconMoon, IconSun,
 } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
+import Button from '@/components/ui/Button'
 
 export default function LoginForm() {
   const router   = useRouter()
@@ -85,15 +86,15 @@ export default function LoginForm() {
 
       {/* ── Panneau formulaire ── */}
       <div className="login-panel">
-        <button
+        <Button
           type="button"
-          className="theme-toggle login-theme-toggle"
+          variant="ghost" size="icon" className="theme-toggle login-theme-toggle"
           onClick={toggleTheme}
           aria-label="Basculer clair / sombre"
           title={theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'}
         >
           {theme === 'dark' ? <IconSun size={16}/> : <IconMoon size={16}/>}
-        </button>
+        </Button>
 
         <div className="login-card">
 
@@ -170,20 +171,18 @@ export default function LoginForm() {
                 </span>
                 <span>Rester connecté</span>
               </label>
-              <button
+              <Button
                 type="button"
-                className="login-ghost-btn"
+                variant="outline" className="login-ghost-btn"
                 onClick={() => { setMode('forgot'); setAlert(null) }}
               >
                 Mot de passe oublié ?
-              </button>
+              </Button>
             </div>
 
-            <button type="submit" className="login-btn" disabled={loading} aria-busy={loading}>
-              {loading
-                ? <><IconLoader2 size={18} className="btn-spinner"/>Connexion…</>
-                : 'Se connecter'}
-            </button>
+            <Button type="submit" className="login-btn" loading={loading} aria-busy={loading}>
+              {loading ? 'Connexion…' : 'Se connecter'}
+            </Button>
           </form>
         )}
 
@@ -206,11 +205,9 @@ export default function LoginForm() {
               </div>
             </div>
 
-            <button type="submit" className="login-btn" disabled={loading} aria-busy={loading}>
-              {loading
-                ? <><IconLoader2 size={18} className="btn-spinner"/>Envoi…</>
-                : 'Envoyer le lien de réinitialisation'}
-            </button>
+            <Button type="submit" className="login-btn" loading={loading} aria-busy={loading}>
+              {loading ? 'Envoi…' : 'Envoyer le lien de réinitialisation'}
+            </Button>
 
             {/* Règle métier : retour au mode connexion depuis le mode mdpo */}
             <div className="login-footer">

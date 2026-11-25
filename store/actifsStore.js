@@ -23,6 +23,16 @@ export const useActifsStore = create((set, get) => ({
     return { data, error }
   },
 
+  // Mirrors js/stock.js submitEditMvt() : quand une Entrée avec actif_id est
+  // corrigée, aligner valeur_achat de la fiche CNTO sur la nouvelle valeur.
+  updateValeurAchatActif: async (supabase, id, valeur) => {
+    const { error } = await supabase
+      .from('actifs_individuels')
+      .update({ valeur_achat: valeur })
+      .eq('id', id)
+    return { error }
+  },
+
   // ══════════════════════════════════════════════════════════
   //  CRÉATION AUTOMATIQUE D'ACTIFS À L'ENTRÉE DE STOCK
   //  Appelée AVANT toute écriture sur mouvements/produits (cf.
