@@ -53,7 +53,6 @@ function MoreRowsNote({ total, shown }) {
 
 // Miroir de renderWeekDeptBlock() : une carte par département visible.
 function WeekDeptBlock({ dept, stats, showP, canSeeAssets, onExport }) {
-  const color = dept === 'IT' ? '#4f46e5' : '#10b981'
   const agents = statsAgentsSemaine(stats.mvts)
   const demandes = [...stats.dms]
     .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
@@ -75,7 +74,7 @@ function WeekDeptBlock({ dept, stats, showP, canSeeAssets, onExport }) {
 
   return (
     <>
-      <div className="card" style={{ borderLeft: `3px solid ${color}`, marginBottom: 14 }}>
+      <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-header">
           <div className="card-header-title">{dept} — flux de la semaine</div>
           <Button variant="outline" size="sm" icon={IconDownload} onClick={onExport}>

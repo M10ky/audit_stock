@@ -17,11 +17,12 @@ function autoSize(display) {
  * - `value`  : texte affiché (ex. « 486 000 MGA » ou un compte)
  * - `raw`    : montant numérique → auto-formaté compact (+ tooltip valeur exacte)
  * - `compact`: force l'affichage compact même sans `raw` (déjà formaté)
+ * - `accent` : deprecated / no visual — accepté pour compatibilité, ignoré au rendu.
  * Passe `index` (stagger d'apparition) pour l'animation d'entrée.
  */
 export default function KpiCard({
   icon: Icon, color = 'teal', value, label, sub, raw, compact = false,
-  index = 0, accent,
+  index = 0,
 }) {
   const tipId = useId()
   const [tipOpen, setTipOpen] = useState(false)
@@ -48,8 +49,6 @@ export default function KpiCard({
       className="kpi kpi-enter"
       style={{
         ...(index ? { animationDelay: `${Math.min(index * 40, 280)}ms` } : null),
-        // Règle métier : `accent` = bordure gauche colorée (parity des KPI tables historiques)
-        ...(accent ? { borderLeft: `3px solid ${accent}` } : null),
       }}
     >
       {Icon && (

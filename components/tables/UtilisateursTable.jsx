@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
-import { IconUsers, IconShieldCheck, IconDownload, IconTrash, IconMail, IconCheck, IconX } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
+import { IconUsers, IconShieldCheck, IconAlertTriangle, IconDownload, IconTrash, IconMail } from '@tabler/icons-react'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
@@ -12,36 +12,15 @@ import Button from '@/components/ui/Button'
 import KpiCard from '@/components/ui/KpiCard'
 import InlineSearchBar from '@/components/search/InlineSearchBar'
 
-// Colonnes de la matrice — un rôle par colonne, calculé via getPermissions()
-// plutôt que recopié à la main : tout futur changement de RBAC (lib/permissions.js)
-// se répercute ici automatiquement, ce qui aurait évité le bug canDemIT/canDemFin
-// corrigé en Étape D si cette matrice avait existé à l'époque.
+// Rôles référencés par les KPI, les filtres, les selects et la légende —
+// descriptions alignées sur lib/permissions.js (RBAC réel, non modifiable ici).
 const ROLE_DEFS = [
-  { role: 'Administrateur',      dept: 'both',    label: 'Admin',         color: '#6d28d9' },
-  { role: 'Support IT',          dept: 'IT',      label: 'Support IT',    color: '#3730a3' },
-  { role: 'Responsable Finance', dept: 'Finance', label: 'Resp. Finance', color: '#065f46' },
-  { role: 'Utilisateur IT',      dept: 'IT',      label: 'Util. IT',      color: '#1e40af' },
-  { role: 'Utilisateur Finance', dept: 'Finance', label: 'Util. Finance', color: '#064e3b' },
-  { role: 'Lecteur',             dept: 'both',    label: 'Lecteur',       color: '#7c3aed' },
-]
-
-const FEATURES = [
-  { label: 'Inventaire IT',              key: 'canSeeIT' },
-  { label: 'Inventaire Finance',         key: 'canSeeFin' },
-  { label: 'Mouvements IT',              key: 'canManIT' },
-  { label: 'Mouvements Finance',         key: 'canManFin' },
-  { label: 'Demandes IT (créer)',        key: 'canDemIT' },
-  { label: 'Demandes Finance (créer)',   key: 'canDemFin' },
-  { label: 'Valider demandes IT',        key: 'canValidIT' },
-  { label: 'Valider demandes Finance',   key: 'canValidFin' },
-  { label: 'Actifs individuels IT',      key: 'canSeeActifsIT' },
-  { label: 'Actifs individuels Finance', key: 'canSeeActifsFin' },
-  { label: 'Prêts IT',                   key: 'canSeePretsIT' },
-  { label: 'Prêts Finance',              key: 'canSeePretsFin' },
-  { label: 'Historique & Rapports',      key: 'canSeeHist' },
-  { label: 'Voir prix / valeurs',        key: 'canSeePrix' },
-  { label: 'Gestion utilisateurs',       key: 'canManUsers' },
-  { label: 'Paramètres système',         key: 'canManParams' },
+  { role: 'Administrateur',      dept: 'both',    label: 'Admin',         color: '#6d28d9', description: 'Accès complet, gestion des comptes et paramètres.' },
+  { role: 'Support IT',          dept: 'IT',      label: 'Support IT',    color: '#3730a3', description: 'Gestion du stock et des demandes IT.' },
+  { role: 'Responsable Finance', dept: 'Finance', label: 'Resp. Finance', color: '#065f46', description: 'Gestion du stock et des demandes Finance.' },
+  { role: 'Utilisateur IT',      dept: 'IT',      label: 'Util. IT',      color: '#1e40af', description: 'Demandes IT et consultation du stock.' },
+  { role: 'Utilisateur Finance', dept: 'Finance', label: 'Util. Finance', color: '#064e3b', description: 'Demandes Finance et consultation du stock.' },
+  { role: 'Lecteur',             dept: 'both',    label: 'Lecteur',       color: '#7c3aed', description: 'Consultation sans modification.' },
 ]
 
 const ROLES_OPTIONS = ROLE_DEFS.map(r => r.role)
@@ -54,6 +33,7 @@ const DEPT_OPTIONS = [
 export default function UtilisateursTable() {
   const supabase = createClient()
   const user             = useAuthStore(s => s.user)
+  const profile          = useAuthStore(s => s.profile)
   const allProfiles       = useAuthStore(s => s.allProfiles)
   const loadAllProfiles   = useAuthStore(s => s.loadAllProfiles)
   const toggleUserActive  = useAuthStore(s => s.toggleUserActive)
@@ -93,11 +73,10 @@ export default function UtilisateursTable() {
       .map(({ r, n }) => ({ lbl: r.label, val: n, s: 'utilisateur(s)', c: r.color })),
   ].slice(0, 8)
 
-  const matrixRows = useMemo(() => FEATURES.map(f => ({
-    label: f.label,
-    key: f.key,
-    values: ROLE_DEFS.map(rd => getPermissions({ role: rd.role, dept: rd.dept })[f.key]),
-  })), [])
+  const canManageUsers = getPermissions(profile).canManUsers
+  const inactiveAccounts = allProfiles.filter(u => !u.is_active)
+  const adminCount = allProfiles.filter(u => u.role === 'Administrateur').length
+  const missingEmailCount = allProfiles.filter(u => !u.email).length
 
   // Auto-protection : on ne permet jamais à un admin de modifier son propre
   // rôle/département/statut depuis ce tableau — un mauvais clic sur sa
@@ -236,58 +215,65 @@ export default function UtilisateursTable() {
         ))}
       </div>
 
-      <div className="card" style={{ marginBottom: 12, background: 'var(--indigo-l)', borderColor: '#c7d2fe' }}>
-        <div style={{ padding: '13px 16px', fontSize: 12, color: 'var(--indigo)' }}>
-          <IconShieldCheck size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-          Pour créer un utilisateur : <strong>Supabase → Authentication → Users → Invite User</strong>,
-          puis insérer le profil correspondant dans <code>profiles</code> avec le même UUID.
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="card-header">
+          <div className="card-header-title">
+            <IconShieldCheck size={16} /> Création de compte
+          </div>
+        </div>
+        <div className="card-body" style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.6 }}>
+          Créez le compte dans <strong>Supabase → Authentication → Users → Invite User</strong>,
+          puis ajoutez la ligne <code>profiles</code> avec le même UUID et le rôle souhaité.
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="card-header">
           <div className="card-header-title">
-            <IconShieldCheck size={16} /> Matrice des droits par rôle
-            <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text3)', marginLeft: 8 }}>
-              lecture seule — calculée depuis lib/permissions.js
-            </span>
+            <IconAlertTriangle size={16} /> Pilotage des comptes
           </div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Fonctionnalité</th>
-                {ROLE_DEFS.map(rd => (
-                  <th key={rd.role} style={{ color: rd.color, textAlign: 'center' }}>{rd.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {matrixRows.map((row, i) => (
-                <tr key={i}>
-                  <td style={{ fontWeight: 500, fontSize: 12 }}>{row.label}</td>
-                  {ROLE_DEFS.map((rd, ri) => {
-                    const granted = row.values[ri] ?? false
-                    return (
-                      <td key={rd.role} style={{ textAlign: 'center' }}>
-                        {/* Lecture seule : aucun onclick — l'état est dérivé de
-                            getPermissions(), un « toggle » localement cliquable
-                            donnerait l'illusion d'une sauvegarde inexistante. */}
-                        <span
-                          className={`perm-toggle perm-static ${granted ? 'perm-granted' : 'perm-refused'}`}
-                          title={`${row.label} — ${rd.label} : ${granted ? 'accordé' : 'refusé'}`}
-                        >
-                          {granted ? <IconCheck size={14} /> : <IconX size={14} />}
-                          <span className="sr-only">{granted ? 'Accordé' : 'Refusé'}</span>
-                        </span>
-                      </td>
-                    )
-                  })}
-                </tr>
+        <div className="card-body">
+          <div className="pilot-stats">
+            <span>Inactifs : <strong>{inactifs}</strong></span>
+            <span>Administrateurs : <strong>{adminCount}</strong></span>
+            <span>Sans email : <strong>{missingEmailCount}</strong></span>
+          </div>
+          {inactiveAccounts.length > 0 ? (
+            <div className="pilot-block">
+              <div className="pilot-title">Comptes inactifs</div>
+              {inactiveAccounts.slice(0, 5).map(p => (
+                <div key={p.id} className="pilot-row">
+                  <div className="pilot-identity">
+                    <strong>{p.name}</strong>
+                    <span>{p.email || 'Email manquant'}</span>
+                  </div>
+                  {canManageUsers && (
+                    <Button size="sm" variant="outline" loading={busyRowId === p.id}
+                      onClick={() => handleToggleActive(p)}>
+                      Activer
+                    </Button>
+                  )}
+                </div>
               ))}
-            </tbody>
-          </table>
+              {inactiveAccounts.length > 5 && (
+                <div className="pilot-more">+ {inactiveAccounts.length - 5} autre(s) dans l’annuaire</div>
+              )}
+            </div>
+          ) : (
+            <div className="pilot-empty">Aucun compte inactif.</div>
+          )}
+          <div className="pilot-block">
+            <div className="pilot-title">Rôles (lecture seule)</div>
+            <div className="pilot-roles">
+              {ROLE_DEFS.map(r => (
+                <div key={r.role} className="pilot-role">
+                  <span className="pilot-role-name">{r.label}</span>
+                  <span className="pilot-role-desc">{r.description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -261,7 +261,7 @@ export default function AmortissementTable() {
       )}
 
       {sansAmort.length > 0 && (
-        <div className="card" style={{ borderLeft: '3px solid var(--amber)', marginTop: 16 }}>
+        <div className="card" style={{ marginTop: 16 }}>
           <div className="card-header">
             <div className="card-header-title" style={{ color: 'var(--amber)' }}>
               <IconAlertTriangle size={16} />

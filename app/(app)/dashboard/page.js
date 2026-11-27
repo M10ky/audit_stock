@@ -176,7 +176,7 @@ export default function DashboardPage() {
 
           <div className="kpi-grid">
             {lecteur.kpis.map((k, i) => (
-              <div key={i} className="kpi kpi-stack kpi-enter" style={{ borderLeftColor: k.c, animationDelay: `${Math.min(i * 40, 280)}ms` }} title={k.raw != null ? fmtMoneyExact(k.raw) : undefined}>
+              <div key={i} className="kpi kpi-stack kpi-enter" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }} title={k.raw != null ? fmtMoneyExact(k.raw) : undefined}>
                 <div className="kpi-lbl">{k.lbl}</div>
                 <div className="kpi-val">{k.raw != null ? fmtMoney(k.raw) : k.val}</div>
                 <div className="kpi-s">{k.s || ''}</div>
