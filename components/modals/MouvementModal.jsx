@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button'
 import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { createClient } from '@/lib/supabase/client'
 import { getCUMPProduit, genId, isActif, fmt, fmtDate, fmtDT, toLocalInputStr, resolveMvtDate } from '@/lib/helpers'
 import { verifierCoherenceSortie } from '@/lib/mouvements'
@@ -22,8 +23,9 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const produits          = useDataStore(s => s.produits.filter(p => p.dept === dept && isActif(p)))
   const params            = useDataStore(s => s.params)
   const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
-  const allProfiles = useAuthStore(s => s.allProfiles)
   const profile     = useAuthStore(s => s.profile)
+  const userName    = profile?.name || ''
+  const perm        = usePermissions()
   const { closeModal, showToast, isSubmitting, withSubmitLock, dateFrom, dateTo, setDateFrom, setDateTo } = useUiStore()
   const { submitMvt, loadProduits, loadMouvements, loadMouvementsEntrees } = useDataStore()
   const createActifUnits      = useActifsStore(s => s.createActifUnits)
@@ -35,7 +37,8 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const [qty, setQty]         = useState(1)
   const [prixUnit, setPrixUnit] = useState('')
   const [prixEdited, setPrixEdited] = useState(false)
-  const [userName, setUserName] = useState(profile?.name || '')
+  const [dejaAmorti, setDejaAmorti] = useState(false)
+  const [prixAvantDejaAmorti, setPrixAvantDejaAmorti] = useState(null)
   const [dest, setDest]       = useState('')
   const [empl, setEmpl]       = useState('')
   const [obs, setObs]         = useState('')
@@ -73,7 +76,33 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
   const actifsIndispo = prodActifs.filter(a => a.statut !== STATUS_ACTIF.EN_SERVICE)
   const actifSortieSel = mvtType === 'sortie' && prod?.is_amortissable
 
-  const handleProdChange = (val) => { setProdId(val); setSelectedActifIds([]) }
+  const handleProdChange = (val) => {
+    setProdId(val)
+    setSelectedActifIds([])
+    setDejaAmorti(false)
+    setPrixAvantDejaAmorti(null)
+    setPrixUnit('')
+    setPrixEdited(false)
+  }
+
+  // Règle métier (js/stock.js syncDejaAmortiUI/onDejaAmortiToggle) : prix forcé
+  // à 0 et verrouillé tant que « Déjà amorti » est coché ; prix précédent restauré
+  // au décochage (ou suggestion CUMP si l'utilisateur n'avait pas saisi de prix).
+  const toggleDejaAmorti = () => {
+    if (dejaAmorti) {
+      setDejaAmorti(false)
+      if (prixAvantDejaAmorti !== null) {
+        setPrixUnit(prixAvantDejaAmorti)
+      } else if (!prixEdited) {
+        setPrixUnit(cump > 0 ? String(Math.round(cump)) : '')
+      }
+      setPrixAvantDejaAmorti(null)
+      return
+    }
+    setPrixAvantDejaAmorti(prixUnit)
+    setPrixUnit('0')
+    setDejaAmorti(true)
+  }
 
   const toggleActifSortie = (id) =>
     setSelectedActifIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -84,16 +113,24 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     setPrixUnit(String(Math.round(cump)))
   }
 
-  const usersOptions = allProfiles.length
-    ? allProfiles.filter(u => u.dept === dept || u.dept === 'both' || u.role === 'Administrateur')
-    : (profile ? [profile] : [])
-
-  const handleSubmit = async () => {
+  const doSubmit = async () => {
+    // Règle métier (js/stock.js submitMvt) : droit de gestion du dept revérifié
+    // au submit, indépendamment du gate d'accès à la page.
+    if (dept === 'IT' && !perm.canManIT && !perm.isAdmin)
+      return showToast('Action non autorisée', 'error')
+    if (dept === 'Finance' && !perm.canManFin && !perm.isAdmin)
+      return showToast('Action non autorisée', 'error')
     if (!prodId) return showToast('Sélectionnez un produit', 'error')
     if (!prod) return showToast('Produit introuvable', 'error')
     // Mirrors js/stock.js submitMvt() : garde produit désactivé au submit,
     // même si un ID inactif aurait été injecté dans le sélecteur.
     if (!isActif(prod)) return showToast('Ce produit est inactif — réactivez-le avant de saisir un mouvement', 'error')
+
+    // Règle métier : quantité = entier strict (miroir js/stock.js) — 0/NaN refusés.
+    const parsedQty = parseInt(qty, 10) || 0
+
+    // Mirrors js/stock.js : « Déjà amorti » force prixUnit = 0 avant tout calcul.
+    const finalPrixUnit = dejaAmorti ? 0 : (Number(prixUnit) || 0)
 
     // Mirrors js/stock.js submitMvt() : validations par type — une sortie
     // amortissable part des actifs cochés (jamais de quantité manuelle).
@@ -113,25 +150,27 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
         }
       }
     } else if (mvtType === 'sortie' && !prod.is_amortissable) {
-      if (!qty || qty <= 0) return showToast('Quantité invalide', 'error')
-      if (prod.stock < Number(qty)) return showToast(`Stock insuffisant (${prod.stock} disponible)`, 'error')
+      if (parsedQty <= 0) return showToast('Quantité invalide', 'error')
+      if (prod.stock < parsedQty) return showToast(`Stock insuffisant (${prod.stock} disponible)`, 'error')
     } else if (isEntree) {
-      if (!qty || qty <= 0) return showToast('Quantité invalide', 'error')
-      if (!prixUnit || Number(prixUnit) <= 0) return showToast('Le prix unitaire est obligatoire pour une entrée', 'error')
+      if (parsedQty <= 0) return showToast('Quantité invalide', 'error')
+      // Règle métier (js/stock.js submitMvt) : 0 n'est valable que pour une
+      // entrée amortissable (et reste forcé à 0 si « Déjà amorti » est coché).
+      if (finalPrixUnit < 0) return showToast('Le prix unitaire ne peut pas être négatif', 'error')
+      if (!prod.is_amortissable && finalPrixUnit <= 0) {
+        return showToast('Le prix unitaire doit être supérieur à 0 pour une entrée non amortissable', 'error')
+      }
     }
     if (mvtType === 'sortie' && !dest) return showToast('Veuillez indiquer la destination', 'error')
 
-    setLoading(true)
     const tsNow = new Date().toISOString()
     // Règle métier : date et heure de la transaction — mode manuel si et
     // SEULEMENT si le champ a été modifié (dateMvt !== dateInit), sinon
     // comportement strictement historique (date = date UTC de tsNow,
     // created_at = tsNow). Contrôles de format / anti-futur AVANT toute écriture.
     const mvtDate = resolveMvtDate(dateMvt, dateInit, tsNow)
-    if (mvtDate.error) {
-      setLoading(false)
-      return showToast(mvtDate.error, 'error')
-    }
+    if (mvtDate.error) return showToast(mvtDate.error, 'error')
+    const tsMvt = mvtDate.ts
     // Règle métier : une sortie rétroactive ne doit pas rendre le solde négatif
     // à un instant T ni casser une sortie postérieure déjà saisie — contrôle
     // APRÈS les validations existantes (produit actif, stock, actifs « En
@@ -140,13 +179,13 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     if (mvtType === 'sortie' && mvtDate.manual) {
       const chk = await verifierCoherenceSortie(
         supabase, prod, selectedActifIds,
-        selectedActifIds.length > 0 ? selectedActifIds.length : Number(qty),
+        selectedActifIds.length > 0 ? selectedActifIds.length : parsedQty,
         mvtDate.ts,
         // Relecture fraîche (loadActifs() ci-dessus) — la closure `actifs`
         // du rendu peut être périmée dans ce contexte asynchrone.
         useActifsStore.getState().actifs,
       )
-      if (!chk.ok) { setLoading(false); return showToast(chk.message, 'error') }
+      if (!chk.ok) return showToast(chk.message, 'error')
     }
     const mvtId = genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN')
     const isAmortEntree = isEntree && prod.is_amortissable
@@ -162,29 +201,27 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
         .split('\n')
         .map(s => s.trim())
         .filter(Boolean)
-      if (manualSerials.length > 0 && manualSerials.length !== Number(qty)) {
-        setLoading(false)
-        return showToast(`${qty} numéro(s) de série requis — ${manualSerials.length} saisi(s)`, 'error')
+      if (manualSerials.length > 0 && manualSerials.length !== parsedQty) {
+        return showToast(`${parsedQty} numéro(s) de série requis — ${manualSerials.length} saisi(s)`, 'error')
       }
       if (new Set(manualSerials).size !== manualSerials.length) {
-        setLoading(false)
         return showToast('Numéros de série en double détectés', 'error')
       }
       const { ok, message } = await createActifUnits(supabase, {
-        prod, qty: Number(qty), mvtId, emplacement: empl, prixUnit: Number(prixUnit),
+        prod, qty: parsedQty, mvtId, emplacement: empl, prixUnit: finalPrixUnit,
         manualSerials,
         // ⚠ Règle métier : date manuelle pour mouvements historiques —
         // date_entree / date_achat / année CNTO des actifs créés = date de
         // la transaction. En DERNIER paramètre optionnel du payload.
         mvtDate,
       })
-      if (!ok) { setLoading(false); return showToast('Erreur (actifs) : ' + message, 'error') }
+      if (!ok) return showToast('Erreur (actifs) : ' + message, 'error')
     }
 
     // Mirrors js/stock.js submitMvt() : la quantité effective d'une sortie
     // amortissable équivaut au nombre d'actifs cochés (le champ Quantité est
     // masqué dans ce cas).
-    const effectiveQty = selectedActifIds.length > 0 ? selectedActifIds.length : Number(qty)
+    const effectiveQty = selectedActifIds.length > 0 ? selectedActifIds.length : parsedQty
 
     // Le stock d'un produit amortissable n'est jamais modifié à la main —
     // il est recalculé juste après depuis le nombre réel d'actifs "En
@@ -196,7 +233,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     if (isEntree && empl) updateData.emplacement = empl
 
     const { error: sErr } = await supabase.from('produits').update(updateData).eq('id', prodId)
-    if (sErr) { showToast('Erreur: ' + sErr.message, 'error'); setLoading(false); return }
+    if (sErr) { showToast('Erreur: ' + sErr.message, 'error'); return }
 
     // Mirrors js/stock.js submitMvt() : une sortie amortissable ne crée PAS
     // de mouvement global — un mouvement PAR actif (actif_id renseigné), et
@@ -207,7 +244,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
         .from('actifs_individuels')
         .update({ statut: STATUS_ACTIF.SORTI })
         .in('id', selectedActifIds)
-      if (aErr) { showToast('Erreur: ' + aErr.message, 'error'); setLoading(false); return }
+      if (aErr) { showToast('Erreur: ' + aErr.message, 'error'); return }
 
       const actifsMap = Object.fromEntries(useActifsStore.getState().actifs.map(a => [a.id, a]))
       // Règle métier : traçabilité de la saisie rétroactive — created_at étant
@@ -215,14 +252,14 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
       // date réelle de saisie et l'auteur. Le repli « Sortie individuelle — … »
       // est conservé APRÈS le tag.
       const tagObs = mvtDate.manual
-        ? `[Saisie rétroactive le ${fmtDT(tsNow)} par ${userName || profile?.name || 'Système'}] `
+        ? `[Saisie rétroactive le ${fmtDT(tsNow)} par ${userName || 'Système'}] `
         : ''
       const mvtRows = selectedActifIds.map(actifId => {
         const actif = actifsMap[actifId]
         return {
           id: genId(dept === 'IT' ? 'MVT-IT' : 'MVT-FIN'),
           date: mvtDate.date,
-          created_at: mvtDate.ts,
+          created_at: tsMvt,
           type: 'Sortie',
           produit_id: prodId,
           produit_nom: prod.nom,
@@ -230,7 +267,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
           qty: 1,
           valeur: actif?.valeur_achat || 0,
           dept,
-          user_name: userName || profile?.name || 'Système',
+          user_name: userName || 'Système',
           user_id: profile?.id,
           destination: dest,
           emplacement: empl,
@@ -240,7 +277,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
         }
       })
       const { error: mBatchErr } = await supabase.from('mouvements').insert(mvtRows)
-      if (mBatchErr) { showToast('Erreur: ' + mBatchErr.message, 'error'); setLoading(false); return }
+      if (mBatchErr) { showToast('Erreur: ' + mBatchErr.message, 'error'); return }
     } else {
       // Valorisation : Entrée → prix unitaire saisi ; Sortie → CUMP réel des
       // entrées (jamais un champ "prix" catalogue manuel et déconnecté).
@@ -248,25 +285,25 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
       // de la transaction (asOfISO), avec repli sur le CUMP global si le résultat
       // vaut 0 (produit legacy sans entrée datée). Mode normal → CUMP global.
       const unit = (mvtDate.manual ? getCUMPProduit(prodId, mouvementsEntrees, mvtDate.ts) : 0) || cump
-      const valeurUnitaire = isEntree ? Number(prixUnit) : unit
+      const valeurUnitaire = isEntree ? finalPrixUnit : unit
 
       // Règle métier : traçabilité de la saisie rétroactive (created_at écrasé
       // par la date de transaction → date réelle de saisie dans l'observation).
       const tagObs = mvtDate.manual
-        ? `[Saisie rétroactive le ${fmtDT(tsNow)} par ${userName || profile?.name || 'Système'}] `
+        ? `[Saisie rétroactive le ${fmtDT(tsNow)} par ${userName || 'Système'}] `
         : ''
 
       const { error: mErr } = await submitMvt(supabase, {
         id: mvtId,
         date: mvtDate.date,
-        created_at: mvtDate.ts,
+        created_at: tsMvt,
         type: isEntree ? 'Entrée' : 'Sortie',
         produit_id: prodId,
         produit_nom: prod.nom,
         qty: effectiveQty,
-        valeur: effectiveQty * valeurUnitaire,
+        valeur: Math.round(effectiveQty * valeurUnitaire),
         dept,
-        user_name: userName || profile?.name || 'Système',
+        user_name: userName || 'Système',
         user_id: profile?.id,
         destination: dest,
         emplacement: empl,
@@ -274,7 +311,7 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
         fournisseur,
         observation: tagObs + obs,
       })
-      if (mErr) { setLoading(false); return showToast('Erreur: ' + mErr.message, 'error') }
+      if (mErr) return showToast('Erreur: ' + mErr.message, 'error')
     }
 
     // Mirrors js/stock.js submitMvt() : le stock d'un produit amortissable est
@@ -282,8 +319,6 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     if (prod.is_amortissable) {
       await syncStockDepuisActifs(supabase, prodId)
     }
-
-    setLoading(false)
 
     // Règle métier : visibilité après saisie rétroactive — le filtrage de période
     // est CÔTÉ CLIENT (uiStore.dateFrom/dateTo, lus par useDateFilter). Si la date
@@ -301,9 +336,9 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     // Règle métier : si la période a été élargie, le toast le signale (remplace
     // le toast de succès — un seul toast visible à la fois).
     if (periodeElargie) {
-      showToast(`Mouvement enregistré au ${mvtDate.date.slice(8, 10)}/${mvtDate.date.slice(5, 7)}/${mvtDate.date.slice(0, 4)} — période d'affichage élargie`)
+      showToast(`Mouvement enregistré au ${fmtDT(tsMvt)} — période d'affichage élargie`)
     } else if (isAmortEntree) {
-      showToast(`Entrée enregistrée + ${qty} actif(s) créé(s)`)
+      showToast(`Entrée enregistrée + ${parsedQty} actif(s) créé(s)`)
     } else if (mvtType === 'sortie' && selectedActifIds.length > 0) {
       const list = selectedActifIds.length <= 3
         ? selectedActifIds.join(', ')
@@ -321,6 +356,16 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
     ])
     closeModal()
   }
+
+  const handleSubmit = async () => withSubmitLock(async () => {
+    setLoading(true)
+    try {
+      await doSubmit()
+    } finally {
+      setLoading(false)
+    }
+  })
+
   return (
     <Modal
       title={isEntree ? '↓ Enregistrer une Entrée' : '↑ Enregistrer une Sortie'}
@@ -377,16 +422,34 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
           <div className="form-group">
             <label className="form-label">Prix unit. (MGA) <span className="req">*</span></label>
             <input
-              className="form-input" type="number" min={0} value={prixUnit}
+              className={`form-input${dejaAmorti ? ' field-readonly' : ''}`}
+              type="number" min={0} value={dejaAmorti ? '0' : prixUnit}
+              readOnly={dejaAmorti}
               onChange={e => { setPrixUnit(e.target.value); setPrixEdited(true) }}
               placeholder="0"
             />
+            {prod?.is_amortissable && (
+              <div style={{ marginTop: 7 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 11.5, fontWeight: 600, color: 'var(--text2)' }}>
+                  <input
+                    type="checkbox"
+                    checked={dejaAmorti}
+                    onChange={toggleDejaAmorti}
+                    style={{ width: 'auto', accentColor: 'var(--teal)', cursor: 'pointer' }}
+                  />
+                  <span>Déjà amorti</span>
+                </label>
+                {dejaAmorti && (
+                  <div className="form-hint" style={{ marginTop: 4, fontSize: 10.5, color: 'var(--text3)' }}>
+                    Prix fixé à 0 Ar — actif déjà entièrement amorti
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="form-group">
             <label className="form-label">Agent <span className="req">*</span></label>
-            <select className="form-select" value={userName} onChange={e => setUserName(e.target.value)}>
-              {usersOptions.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
-            </select>
+            <input className="form-input" value={userName} readOnly />
           </div>
         </div>
       ) : (
@@ -452,18 +515,14 @@ export default function MouvementModal({ mvtType, dept, prodId: initialProdId })
               </div>
               <div className="form-group">
                 <label className="form-label">Agent <span className="req">*</span></label>
-                <select className="form-select" value={userName} onChange={e => setUserName(e.target.value)}>
-                  {usersOptions.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
-                </select>
+                <input className="form-input" value={userName} readOnly />
               </div>
             </div>
           )}
           {actifSortieSel && (
             <div className="form-group">
               <label className="form-label">Agent <span className="req">*</span></label>
-              <select className="form-select" value={userName} onChange={e => setUserName(e.target.value)}>
-                {usersOptions.map(u => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
-              </select>
+              <input className="form-input" value={userName} readOnly />
             </div>
           )}
         </>

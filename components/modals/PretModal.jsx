@@ -7,9 +7,10 @@ import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
 import { usePretsStore, STATUS_PRET } from '@/store/pretsStore'
-import { STATUS_ACTIF } from '@/lib/actifs'
+import { STATUS_ACTIF, TRANSITIONS_ACTIF, isValidTransition } from '@/lib/actifs'
+import { canManIT, canManFin } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
-import { isActif } from '@/lib/helpers'
+import { fmtDate, isActif } from '@/lib/helpers'
 
 // Mirrors js/prets.js renderModalPret()
 export default function PretModal({ dept }) {
@@ -58,10 +59,15 @@ export default function PretModal({ dept }) {
   }
 
   const handleSubmit = async () => withSubmitLock(async () => {
+    if (dept === 'IT' ? !canManIT(profile) : !canManFin(profile)) return showToast('Action non autorisée', 'error')
     if (!actifId)      return showToast('Sélectionnez un actif', 'error')
     if (!emprunteur)   return showToast("L'emprunteur est requis", 'error')
     if (!dateRetour)   return showToast('Date de retour prévue requise', 'error')
     if (!motif.trim()) return showToast('Le motif est requis', 'error')
+    const actif = actifsDispos.find(x => x.id === actifId)
+    if (!actif || !isValidTransition(TRANSITIONS_ACTIF, actif.statut, STATUS_ACTIF.EN_PRET)) {
+      return showToast(`"${actifId}" ne peut pas être prêté (statut : ${actif?.statut || 'inconnu'})`, 'error')
+    }
 
     const emprunteurProfile = allProfiles.find(u => u.name === emprunteur)
 
@@ -79,7 +85,7 @@ export default function PretModal({ dept }) {
     setLoading(false)
     if (error) return showToast('Erreur : ' + error.message, 'error')
 
-    showToast(`Prêt enregistré — "${actifId}" confié à ${emprunteur}`)
+    showToast(`Prêt enregistré — "${actifId}" confié à ${emprunteur} jusqu'au ${fmtDate(dateRetour)}`)
     await loadPrets(supabase)
     // Symétrique du retour de prêt : la création fait passer l'actif hors du
     // pool "disponible" (En service → En prêt), donc le stock recalculé.

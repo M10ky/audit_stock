@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { createClient } from '@/lib/supabase/client'
 import { isActif } from '@/lib/helpers'
 
@@ -16,11 +17,13 @@ export default function DemandeModal({ dept }) {
   const { closeModal, showToast, isSubmitting, withSubmitLock } = useUiStore()
   const { submitDem, loadDemandes, params } = useDataStore()
   const profile = useAuthStore(s => s.profile)
+  const perm = usePermissions()
   // ← Mirrors js/stock.js renderModal() : le datalist n'expose que les produits
   // ACTIFS (isActif = actif !== false) — pas de demande sur un produit désactivé.
   const produits = useDataStore(s => s.produits.filter(p => p.dept === dept && isActif(p)))
   const destinations = params.destinations || []
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
+  const canDem = dept === 'IT' ? perm.canDemIT : perm.canDemFin
 
   const [produit, setProduit] = useState('')
   const [qty, setQty]         = useState(1)
@@ -39,6 +42,7 @@ export default function DemandeModal({ dept }) {
   // n'était donc pas réellement câblé. Enveloppe maintenant tout le corps
   // de soumission, comme sur MouvementModal/PretModal/PretsTable.
   const handleSubmit = async () => withSubmitLock(async () => {
+    if (!canDem) return showToast('Accès refusé : création de demande non autorisée', 'error')
     if (!produit.trim()) return showToast('Produit requis', 'error')
     if (!dest)           return showToast('Veuillez sélectionner une destination', 'error')
     if (!motif.trim())   return showToast('Le motif est requis', 'error')
@@ -50,7 +54,7 @@ export default function DemandeModal({ dept }) {
     // faisait sauter et gelait le bouton en loading. try/finally garantit la
     // réinitialisation sur tous les chemins (succès, erreur retournée, erreur levée).
     try {
-      const { error } = await submitDem(supabase, {
+      const res = await submitDem(supabase, {
         date: tsNow.split('T')[0],
         created_at: tsNow,
         demandeur: profile?.name || '',
@@ -63,7 +67,8 @@ export default function DemandeModal({ dept }) {
         statut: 'En attente',
         urgence,
       })
-      if (error) return showToast('Erreur: ' + error.message, 'error')
+      if (res?.ok === false) return showToast(res.message || 'Erreur: création refusée', 'error')
+      if (res?.error) return showToast('Erreur: ' + res.error.message, 'error')
     } catch (e) {
       return showToast('Erreur réseau : ' + (e?.message || e), 'error')
     } finally {

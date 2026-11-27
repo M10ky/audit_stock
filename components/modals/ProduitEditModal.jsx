@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useDataStore } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { createClient } from '@/lib/supabase/client'
 import { tauxLineaire } from '@/lib/amortissement'
 import { getCUMPProduit } from '@/lib/helpers'
@@ -13,7 +14,8 @@ const DUREES = [12, 24, 36, 48, 60, 84]
 
 export default function ProduitEditModal({ dept, produit }) {
   const supabase = createClient()
-  const { closeModal, showToast, openConfirm } = useUiStore()
+  const { closeModal, showToast, openConfirm, isSubmitting, withSubmitLock } = useUiStore()
+  const perm = usePermissions()
   const { submitEdit, createAjustementMouvement, loadProduits, loadMouvements, loadMouvementsEntrees, params, mouvementsEntrees } = useDataStore()
   const emplacements = params.emplacements?.length ? params.emplacements : ['Stock Principal']
 
@@ -27,9 +29,43 @@ export default function ProduitEditModal({ dept, produit }) {
     stock: produit.stock || 0,
   })
   const [loading, setLoading] = useState(false)
+  const busy = loading || isSubmitting
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const taux = tauxLineaire(form.duree_amortissement)
   const cump = getCUMPProduit(produit.id, mouvementsEntrees)
+
+  const withLock = async (fn) => withSubmitLock(async () => {
+    setLoading(true)
+    try {
+      await fn()
+    } finally {
+      setLoading(false)
+    }
+  })
+
+  // Règle métier (js/stock.js updateAmortissable()) : la bascule est écrite
+  // immédiatement, indépendamment du bouton Enregistrer (pas de double écriture).
+  const handleAmortissableToggle = async (checked) => {
+    await withLock(async () => {
+      set('isAmortissable', checked)
+      const { ok, error, message } = await submitEdit(supabase, produit.id, {
+        is_amortissable: checked,
+        updated_at: new Date().toISOString(),
+      })
+      if (!ok || error) {
+        set('isAmortissable', !checked)
+        return showToast('Erreur: ' + (error?.message || message || 'mise à jour refusée'), 'error')
+      }
+      showToast(checked
+        ? 'Suivi individuel amortissable activé'
+        : 'Suivi individuel amortissable désactivé')
+      await Promise.all([
+        loadProduits(supabase, dept),
+        loadMouvements(supabase, dept),
+        loadMouvementsEntrees(supabase),
+      ])
+    })
+  }
 
   // Mirrors js/stock.js updateEditStockHint() : aperçu EN DIRECT de l'écart de
   // stock (non-amortissable uniquement) — pur visuel, la validation réelle
@@ -55,7 +91,13 @@ export default function ProduitEditModal({ dept, produit }) {
     }
 
     const doSubmit = async () => {
-      setLoading(true)
+      // Règle métier (js/stock.js submitEdit) : droit de gestion du dept
+      // revérifié avant toute écriture, ajustement de stock inclus.
+      if (dept === 'IT' && !perm.canManIT && !perm.isAdmin)
+        return showToast('Action non autorisée', 'error')
+      if (dept === 'Finance' && !perm.canManFin && !perm.isAdmin)
+        return showToast('Action non autorisée', 'error')
+
       // Le champ catalogue "prix" n'est plus édité ici : la valorisation du
       // stock (produits non amortissables) est dérivée automatiquement du CUMP.
       const payload = {
@@ -64,7 +106,6 @@ export default function ProduitEditModal({ dept, produit }) {
         valeur_achat: Number(form.valeur_achat) || 0,
         date_achat: form.date_achat || null,
         duree_amortissement: Number(form.duree_amortissement) || 36,
-        is_amortissable: form.isAmortissable,
         updated_at: new Date().toISOString(),
       }
       // Le stock n'est envoyé QUE s'il a réellement changé — jamais pour un
@@ -72,7 +113,7 @@ export default function ProduitEditModal({ dept, produit }) {
       if (!form.isAmortissable && diffStock !== 0) payload.stock = nouveauStock
 
       const { error } = await submitEdit(supabase, produit.id, payload)
-      if (error) { setLoading(false); return showToast('Erreur: ' + error.message, 'error') }
+      if (error) return showToast('Erreur: ' + error.message, 'error')
 
       // Traçabilité : un ajustement manuel de stock est un mouvement comme un
       // autre dans l'historique — jamais une écriture silencieuse. Créé APRÈS
@@ -80,10 +121,9 @@ export default function ProduitEditModal({ dept, produit }) {
       // l'erreur remonte (cohérent avec stock.js, pas de RPC atomique ici).
       if (!form.isAmortissable && diffStock !== 0) {
         const { error: mErr } = await createAjustementMouvement(supabase, produit, diffStock)
-        if (mErr) { setLoading(false); return showToast('Erreur: ' + mErr.message, 'error') }
+        if (mErr) return showToast('Erreur: ' + mErr.message, 'error')
       }
 
-      setLoading(false)
       showToast(diffStock !== 0
         ? `Produit mis à jour — stock ajusté de ${diffStock > 0 ? '+' : ''}${diffStock} (${prodStock} → ${nouveauStock})`
         : 'Produit mis à jour')
@@ -94,6 +134,7 @@ export default function ProduitEditModal({ dept, produit }) {
       ])
       closeModal()
     }
+    const submitLocked = () => withLock(doSubmit)
 
     // Mirrors js/stock.js submitEdit() : confirmation si écart important
     // (> 20% du stock actuel OU > 10 unités), sinon soumission directe.
@@ -104,19 +145,19 @@ export default function ProduitEditModal({ dept, produit }) {
         openConfirm({
           title: "Confirmer l'ajustement de stock ?",
           message: `${produit.nom} : le stock passera de ${prodStock} à ${nouveauStock} (${diffStock > 0 ? '+' : ''}${diffStock}).\n\nCet écart est important — vérifiez la saisie avant de confirmer.`,
-          onConfirm: doSubmit,
+          onConfirm: submitLocked,
         })
         return
       }
     }
-    doSubmit()
+    submitLocked()
   }
 
   return (
     <Modal title={`✏️ Modifier — ${produit.nom}`} onClose={closeModal} footer={
       <>
         <Button variant="outline" onClick={closeModal}>Annuler</Button>
-        <Button loading={loading} onClick={handleSubmit}>✓ Enregistrer</Button>
+        <Button loading={busy} disabled={busy} onClick={handleSubmit}>✓ Enregistrer</Button>
       </>
     }>
       <div className="form-group">
@@ -211,7 +252,7 @@ export default function ProduitEditModal({ dept, produit }) {
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
           <input
             type="checkbox" checked={form.isAmortissable}
-            onChange={e => set('isAmortissable', e.target.checked)}
+            onChange={e => handleAmortissableToggle(e.target.checked)}
             style={{ width: 'auto', accentColor: 'var(--teal)', cursor: 'pointer' }}
           />
           <span style={{ fontSize: 12, color: '#065f46', fontWeight: 600 }}>Suivi individuel amortissable</span>

@@ -6,6 +6,8 @@ import { useUiStore }      from '@/store/uiStore'
 import { usePermissions }  from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient }    from '@/lib/supabase/client'
+import { useActifsStore }   from '@/store/actifsStore'
+import { STATUS_ACTIF }     from '@/lib/actifs'
 import { fmt, getValeurStockActuel, isActif } from '@/lib/helpers'
 import { exportToCSV, todayFileDate } from '@/lib/csv'
 import { highlight }       from '@/hooks/useSearch'
@@ -19,6 +21,7 @@ export default function ProduitsTable({ dept }) {
 
   const produits          = useDataStore(s => s.produits.filter(p => p.dept === dept))
   const mouvementsEntrees = useDataStore(s => s.mouvementsEntrees)
+  const actifs            = useActifsStore(s => s.actifs)
   const loadProduits      = useDataStore(s => s.loadProduits)
   const deleteProduit     = useDataStore(s => s.deleteProduit)
   const toggleProductActif = useDataStore(s => s.toggleProductActif)
@@ -101,6 +104,15 @@ export default function ProduitsTable({ dept }) {
   // pour signaler que la ligne grisée n'est pas une erreur mais un produit désactivé.
   const nbInactifs = produits.filter(p => !isActif(p)).length
 
+  // Règle métier (js/stock.js prodTable) : le stock déclaré d'un produit
+  // amortissable doit épouser le nombre d'actifs réels « En service ».
+  const nbDesyncActifs = produits.filter(p =>
+    p.is_amortissable &&
+    Number(p.stock) !== actifs.filter(a =>
+      a.produit_id === p.id && a.statut === STATUS_ACTIF.EN_SERVICE
+    ).length
+  ).length
+
   return (
     <>
       <InlineSearchBar
@@ -122,6 +134,13 @@ export default function ProduitsTable({ dept }) {
               <span className="badge"
                 style={{ background: 'var(--bg)', color: 'var(--text3)', fontWeight: 600 }}>
                 {nbInactifs} inactif{nbInactifs > 1 ? 's' : ''}
+              </span>
+            )}
+            {nbDesyncActifs > 0 && (
+              <span className="badge"
+                style={{ background: '#fef3c7', color: '#b45309', fontWeight: 600 }}
+                title="Stock déclaré différent du nombre d'actifs réels En service">
+                ⚠ {nbDesyncActifs} produit(s) actif(s) réel(s)
               </span>
             )}
           </div>

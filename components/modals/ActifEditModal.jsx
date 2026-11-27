@@ -6,9 +6,11 @@ import { useActifsStore } from '@/store/actifsStore'
 import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
+import { usePretsStore } from '@/store/pretsStore'
 import { createClient } from '@/lib/supabase/client'
 import { tauxLineaire } from '@/lib/amortissement'
 import { buildActifNote } from '@/lib/actifs'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const DUREES = [12, 24, 36, 48, 60, 84]
 
@@ -18,9 +20,14 @@ export default function ActifEditModal({ actif }) {
   const submitEditActif = useActifsStore(s => s.submitEditActif)
   const renommerActif   = useActifsStore(s => s.renommerActif)
   const loadActifs      = useActifsStore(s => s.loadActifs)
+  const loadProduits    = useDataStore(s => s.loadProduits)
+  const loadMouvements  = useDataStore(s => s.loadMouvements)
+  const loadPrets       = usePretsStore(s => s.loadPrets)
   const profile = useAuthStore(s => s.profile)
   const params = useDataStore(s => s.params)
   const fournisseurs = params.fournisseurs || []
+  const perm = usePermissions()
+  const canMan = actif?.dept === 'IT' ? perm.canManIT : perm.canManFin
 
   const [form, setForm] = useState({
     valeur_achat: actif.valeur_achat || 0,
@@ -35,6 +42,7 @@ export default function ActifEditModal({ actif }) {
   const taux = tauxLineaire(form.duree_amortissement)
 
   const doRename = async (newSerial) => {
+    if (!canMan) return showToast("Vous n'avez pas les droits pour modifier cet actif", 'error')
     setLoading(true)
     const note = buildActifNote(actif, `Numéro de série modifié de ${actif.id} vers ${newSerial}`, profile?.name)
     const { error } = await renommerActif(supabase, actif.id, newSerial, note)
@@ -42,10 +50,14 @@ export default function ActifEditModal({ actif }) {
     if (error) return showToast('Erreur : ' + error.message, 'error')
     showToast(`Numéro de série modifié : ${actif.id} → ${newSerial}`)
     await loadActifs(supabase)
+    await loadPrets(supabase)
+    await loadMouvements(supabase)
+    await loadProduits(supabase, actif.dept)
     closeModal()
   }
 
   const handleSubmit = async () => {
+    if (!canMan) return showToast("Vous n'avez pas les droits pour modifier cet actif", 'error')
     const newSerial = serial.trim()
     if (!newSerial) return showToast('Le numéro de série / N° Inventaire est obligatoire', 'error')
 
@@ -87,7 +99,7 @@ export default function ActifEditModal({ actif }) {
       footer={
         <>
           <Button variant="outline" onClick={closeModal}>Annuler</Button>
-          <Button loading={loading} onClick={handleSubmit}>✓ Enregistrer</Button>
+          {canMan && <Button loading={loading} onClick={handleSubmit}>✓ Enregistrer</Button>}
         </>
       }
     >

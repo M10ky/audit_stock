@@ -13,7 +13,7 @@ import { fmtDT } from '@/lib/helpers'
 
 export default function MouvementEditModal({ mv }) {
   const supabase = createClient()
-  const { closeModal, showToast, openConfirm, isSubmitting, withSubmitLock } = useUiStore()
+  const { closeModal, showToast, isSubmitting, withSubmitLock } = useUiStore()
   const perm = usePermissions()
   const user = useAuthStore(s => s.user)
   const profile = useAuthStore(s => s.profile)
@@ -53,6 +53,16 @@ export default function MouvementEditModal({ mv }) {
 
   const doSubmit = () => withSubmitLock(async () => {
     if (!canEditMvt(mv, user, profile, perm)) {
+      showToast('Action non autorisée', 'error')
+      return
+    }
+    // Règle métier (js/stock.js submitEditMvt) : visibilité du dept revérifiée
+    // avant correction, en plus du droit de gestion.
+    if (mv.dept === 'IT' && !perm.canSeeIT && !perm.isAdmin) {
+      showToast('Action non autorisée', 'error')
+      return
+    }
+    if (mv.dept === 'Finance' && !perm.canSeeFin && !perm.isAdmin) {
       showToast('Action non autorisée', 'error')
       return
     }
@@ -122,11 +132,7 @@ export default function MouvementEditModal({ mv }) {
       showToast('Action non autorisée', 'error')
       return
     }
-    openConfirm({
-      title: 'Confirmer la correction du mouvement ?',
-      message: `${mv.id} — la valeur, la destination, l'emplacement, le fournisseur, la référence et l'observation seront corrigés. Quantité, produit et type restent inchangés.`,
-      onConfirm: doSubmit,
-    })
+    doSubmit()
   }
 
   if (!mv) return null

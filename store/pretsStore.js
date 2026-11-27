@@ -1,6 +1,8 @@
 // Nouveau fichier — mirrors js/prets.js
 import { create } from 'zustand'
 import { genId } from '@/lib/helpers'
+import { useAuthStore } from '@/store/authStore'
+import { canManIT, canManFin } from '@/lib/permissions'
 
 export const STATUS_PRET = {
   EN_COURS:  'En cours',
@@ -19,6 +21,15 @@ export const TRANSITIONS_PRET = {
 
 export function isValidTransition(map, from, to) {
   return Array.isArray(map[from]) && map[from].includes(to)
+}
+
+// Règle métier : mirroring js/prets.js, chaque RPC prêt est protégée côté
+// client — le store revérifie le droit de gestion du département du prêt.
+function canManagePret(dept) {
+  const profile = useAuthStore.getState().profile
+  if (dept === 'IT') return canManIT(profile)
+  if (dept === 'Finance') return canManFin(profile)
+  return false
 }
 
 // getActifNumero : compat ancienne colonne produit_id vs actif_numero
@@ -83,6 +94,8 @@ export const usePretsStore = create((set, get) => ({
 
   // ── Retour d'un actif prêté ────────────────────────────────
   retournerPret: async (supabase, pretId, userName, userId) => {
+    const pret = get().prets.find(p => p.id === pretId)
+    if (!canManagePret(pret?.dept)) return { error: { message: 'Action non autorisée' } }
     const { error } = await supabase.rpc('rpc_retourner_pret', {
       p_pret_id:   pretId,
       p_user_name: userName || 'Système',
@@ -93,6 +106,8 @@ export const usePretsStore = create((set, get) => ({
 
   // ── Déclaration de perte ────────────────────────────────────
   perdreActif: async (supabase, pretId, userName, userId) => {
+    const pret = get().prets.find(p => p.id === pretId)
+    if (!canManagePret(pret?.dept)) return { error: { message: 'Action non autorisée' } }
     const { error } = await supabase.rpc('rpc_perdre_pret', {
       p_pret_id:   pretId,
       p_user_name: userName || 'Système',
@@ -103,6 +118,8 @@ export const usePretsStore = create((set, get) => ({
 
   // ── Retrouvaille d'un actif déclaré perdu (réversibilité) ───
   retrouverActifPret: async (supabase, pretId, userName, userId) => {
+    const pret = get().prets.find(p => p.id === pretId)
+    if (!canManagePret(pret?.dept)) return { data: null, error: { message: 'Action non autorisée' } }
     const { data, error } = await supabase.rpc('rpc_retrouver_actif', {
       p_pret_id:   pretId,
       p_user_name: userName || 'Système',

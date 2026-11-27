@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
+import { canSeeIT, canSeeFin, isAdmin } from '@/lib/permissions'
 import { useDataStore } from '@/store/dataStore'
 import { useActifsStore } from '@/store/actifsStore'
 import { usePretsStore } from '@/store/pretsStore'
@@ -28,7 +29,9 @@ export function useInitialData() {
     if (!profile || done.current) return
     done.current = true
 
-    const dept = profile.dept // 'IT' | 'Finance' | 'both'
+    const seeIT = canSeeIT(profile)
+    const seeFin = canSeeFin(profile)
+    const dept = seeIT && seeFin ? 'both' : seeIT ? 'IT' : seeFin ? 'Finance' : null
 
     Promise.all([
       loadProduits(supabase, dept),
@@ -38,7 +41,7 @@ export function useInitialData() {
       loadMouvementsEntrees(supabase),
       loadActifs(supabase),
       loadPrets(supabase),
-      profile.role === 'Administrateur' ? loadAllProfiles(supabase) : Promise.resolve(),
+      isAdmin(profile) ? loadAllProfiles(supabase) : Promise.resolve(),
     ])
   }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 }

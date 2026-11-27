@@ -17,7 +17,13 @@ export default function ActifHistoriqueModal({ actif }) {
 
   const badgeFor = (h) => {
     if (h.kind === 'pret') {
-      return <span className="badge" style={{ background: 'var(--indigo-l)', color: 'var(--indigo)' }}>{h.label}</span>
+      const styles = {
+        'Prêt':   { bg: 'var(--indigo-l)', fg: 'var(--indigo)', icon: '⇄ ' },
+        'Retour': { bg: 'var(--green-l)',  fg: 'var(--green)',  icon: '✓ ' },
+        'Perdu':  { bg: 'var(--red-l)',    fg: 'var(--red)',    icon: '✕ ' },
+      }
+      const s = styles[h.label] || { bg: 'var(--indigo-l)', fg: 'var(--indigo)', icon: '' }
+      return <span className="badge" style={{ background: s.bg, color: s.fg }}>{s.icon}{h.label}</span>
     }
     return <TypeBadge type={h.label} />
   }

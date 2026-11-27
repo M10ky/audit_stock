@@ -17,7 +17,7 @@ export async function DELETE(_request, { params }) {
   if (!id) return NextResponse.json({ error: 'ID utilisateur manquant' }, { status: 400 })
 
   // Garde serveur : session authentifiée + rôle Admin (canManUsers). Le
-  // middleware ne vérifie qu'une session existante, pas le rôle.
+  // middleware filtre aussi les pages Admin, mais cette garde protège l'API.
   const guard = await requireManUsers()
   if (guard.error) return guard.error
   if (id === guard.profile.id) {
@@ -26,7 +26,7 @@ export async function DELETE(_request, { params }) {
 
   const supabase = createAdminClient()
 
-  // 1) Table `profiles` (volet applicatif) — même opération que le Vanilla.
+  // 1) Table `profiles` (volet applicatif).
   const { error: profileErr } = await supabase
     .from('profiles')
     .delete()
@@ -35,7 +35,8 @@ export async function DELETE(_request, { params }) {
     return NextResponse.json({ error: profileErr.message }, { status: 500 })
   }
 
-  // 2) Compte Supabase Auth (volet authentification) — service_role requis.
+  // 2) Compte Supabase Auth (service_role requis) — suppression après le
+  // profil : un compte sans profil est rejeté proprement au chargement session.
   const { error: authErr } = await supabase.auth.admin.deleteUser(id)
   if (authErr) {
     return NextResponse.json({ error: authErr.message }, { status: 500 })

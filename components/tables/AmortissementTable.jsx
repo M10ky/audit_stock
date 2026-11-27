@@ -54,7 +54,7 @@ export default function AmortissementTable() {
   // Strict === 0, mirrors vanilla — un actif avec valeur_residuelle > 0 ne
   // peut jamais atteindre 0 (il plafonne à sa valeur résiduelle), ce qui est
   // le comportement voulu, pas un cas à généraliser en "au plancher".
-  const nbExpires = filtered.filter(a => calcVNCActif(a) === 0).length
+  const nbExpires = filtered.filter(a => (calcVNCActif(a) ?? -1) === 0).length
 
   const sorted = [...filtered].sort((a, b) => (b.valeur_achat || 0) - (a.valeur_achat || 0))
 
@@ -62,7 +62,7 @@ export default function AmortissementTable() {
   // chart-amort : top 8 en valeur d'acquisition, montants en millions (M MGA).
   // chart-amort-pie : répartition sur TOUS les actifs filtrés (pas le top 8).
   const top8     = sorted.slice(0, 8)
-  const nbFully   = filtered.filter(a => calcVNCActif(a) === 0).length
+  const nbFully   = filtered.filter(a => (calcVNCActif(a) ?? -1) === 0).length
   const nbPartial = filtered.filter(a => {
     const pct = amortPctActif(a)
     return pct !== null && pct > 50 && pct < 100
@@ -87,7 +87,7 @@ export default function AmortissementTable() {
         a.dept, a.produit_nom || '', a.id, a.categorie || '', a.emplacement || '',
         a.valeur_achat || 0, a.date_achat || '', a.duree_amortissement || '',
         taux ?? '', ann ?? '',
-        vnc !== null ? vnc : '',
+        vnc == null ? '' : vnc,
         pct !== null ? pct + '%' : '',
         pct === 100 ? 'Totalement amorti' : pct !== null && pct > 50 ? 'Partiel (>50%)' : pct !== null ? 'Faible (<50%)' : 'Non configuré',
       ]
@@ -190,7 +190,7 @@ export default function AmortissementTable() {
               <tbody>
                 {sorted.map(a => {
                   const vnc     = calcVNCActif(a)
-                  const pct     = amortPctActif(a) ?? 0
+                  const pct     = amortPctActif(a)
                   const color   = amortColor(pct)
                   const taux    = tauxLineaire(a.duree_amortissement)
                   const annuite = annuiteLineaire(a.valeur_achat, a.duree_amortissement)
@@ -215,6 +215,8 @@ export default function AmortissementTable() {
                       <td>
                         {vnc === 0 ? (
                           <span className="badge" style={{ background: '#fef2f2', color: '#dc2626' }}>Totalement amorti</span>
+                        ) : vnc == null || pct == null ? (
+                          <span className="text-muted">—</span>
                         ) : (
                           <div>
                             <div style={{ fontWeight: 700, fontSize: 12, color, marginBottom: 3 }} title={`${fmt(vnc)} MGA`}>{fmtMoney(vnc)}</div>
@@ -228,7 +230,7 @@ export default function AmortissementTable() {
                             <IconHistory size={14} />
                           </Button>
                         ) : (
-                          <Button size="icon" variant="outline" title="Modifier les paramètres d'amortissement" onClick={() => openModal('edit-actif', { actif: a })}>
+                          <Button size="icon" variant="outline" title="Modifier les paramètres d'amortissement" onClick={() => ((a.dept === 'IT' ? perm.canManIT : perm.canManFin) ? openModal('edit-actif', { actif: a }) : openModal('actif-historique', { actif: a }))}>
                             <IconEdit size={14} />
                           </Button>
                         )}
@@ -278,10 +280,10 @@ export default function AmortissementTable() {
                     </td>
                     <td><span className="badge" style={{ background: 'var(--bg)', color: 'var(--text2)' }}>{a.categorie}</span></td>
                     <td>
-                      {perm.isLecteur ? (
-                        <span className="text-muted" style={{ fontSize: 11 }}>—</span>
-                      ) : (
+                      {(a.dept === 'IT' ? perm.canManIT : perm.canManFin) ? (
                         <Button size="sm" onClick={() => openModal('edit-actif', { actif: a })}>Configurer</Button>
+                      ) : (
+                        <span className="text-muted" style={{ fontSize: 11 }}>—</span>
                       )}
                     </td>
                   </tr>

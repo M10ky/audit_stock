@@ -24,10 +24,16 @@ export const useAuthStore = create((set, get) => ({
       .eq('id', userId)
       .single()
 
-    if (!error && data) {
-      set({ profile: data })
+    if (error || !data) {
+      set({ profile: null })
+      return { data: null, error: error || { message: 'Profil introuvable.' } }
     }
-    return { data, error }
+    if (data.is_active === false) {
+      set({ profile: null })
+      return { data: null, error: { message: 'Compte désactivé.' } }
+    }
+    set({ profile: data })
+    return { data, error: null }
   },
 
   // ── Chargement de tous les profils (admin) ───────────────────

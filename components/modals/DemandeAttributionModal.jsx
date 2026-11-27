@@ -6,22 +6,23 @@ import { useActifsStore } from '@/store/actifsStore'
 import { useDataStore } from '@/store/dataStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { createClient } from '@/lib/supabase/client'
-import { fmt, fmtDate, fmtMoney, genId } from '@/lib/helpers'
+import { fmt, fmtDate, fmtMoney } from '@/lib/helpers'
 import { STATUS_ACTIF } from '@/lib/actifs'
 
 // Mirrors js/app.js renderModalDemAttribution() / submitDemAttribution()
 export default function DemandeAttributionModal({ demande, produit, dept }) {
   const supabase = createClient()
   const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
-  const { closeModal, showToast } = useUiStore()
+  const { closeModal, showToast, isSubmitting, withSubmitLock } = useUiStore()
   const profile = useAuthStore(s => s.profile)
+  const perm = usePermissions()
 
   const actifs = useActifsStore(s => s.actifs.filter(a => a.produit_id === produit.id && a.statut === STATUS_ACTIF.EN_SERVICE))
   const loadActifs = useActifsStore(s => s.loadActifs)
   const attribuerDemandeManuelle = useActifsStore(s => s.attribuerDemandeManuelle)
   const syncStockDepuisActifs = useActifsStore(s => s.syncStockDepuisActifs)
-  const validDemAction = useDataStore(s => s.validDem)
   const loadDemandes = useDataStore(s => s.loadDemandes)
   const loadMouvements = useDataStore(s => s.loadMouvements)
   const loadProduits = useDataStore(s => s.loadProduits)
@@ -29,6 +30,8 @@ export default function DemandeAttributionModal({ demande, produit, dept }) {
   const [selected, setSelected] = useState([])
   const [loading, setLoading] = useState(false)
   const [ready, setReady] = useState(false)
+  const canVal = dept === 'IT' ? perm.canValidIT : perm.canValidFin
+  const busy = loading || isSubmitting
 
   useEffect(() => {
     loadActifs(supabase).then(() => setReady(true))
@@ -41,30 +44,34 @@ export default function DemandeAttributionModal({ demande, produit, dept }) {
   const dispo = actifs
   const insuffisant = ready && dispo.length < demande.qty
 
-  const handleSubmit = async () => {
+  const handleSubmit = async () => withSubmitLock(async () => {
+    if (!canVal) return showToast('Accès refusé : validation non autorisée', 'error')
     if (selected.length !== demande.qty) {
       return showToast(`Sélectionnez exactement ${demande.qty} matériel(s) (${selected.length} sélectionné(s))`, 'error')
     }
     setLoading(true)
-    const { error } = await attribuerDemandeManuelle(
-      supabase,
-      { demande, produit, dept, dest: demande.dest, actifIds: selected },
-      profile
-    )
-    setLoading(false)
-    if (error) return showToast('Erreur : ' + error.message, 'error')
+    try {
+      const { error } = await attribuerDemandeManuelle(
+        supabase,
+        { demande, produit, dept, dest: demande.dest || '', actifIds: selected },
+        profile
+      )
+      if (error) return showToast('Erreur : ' + error.message, 'error')
 
-    // rpc_attribuer_demande met déjà à jour le statut de la demande côté SQL ;
-    // on synchronise le reste du state client comme après toute mutation.
-    showToast(`Demande validée — ${selected.length} matériel(s) attribué(s)`)
-    await Promise.all([
-      loadDemandes(supabase, dept),
-      loadMouvements(supabase, dept),
-    ])
-    await syncStockDepuisActifs(supabase, produit.id)
-    await loadProduits(supabase, dept)
-    closeModal()
-  }
+      // rpc_attribuer_demande met déjà à jour le statut de la demande côté SQL ;
+      // on synchronise le reste du state client comme après toute mutation.
+      showToast(`Demande validée — ${selected.length} matériel(s) attribué(s)`)
+      await Promise.all([
+        loadDemandes(supabase, dept),
+        loadMouvements(supabase, dept),
+      ])
+      await syncStockDepuisActifs(supabase, produit.id)
+      await loadProduits(supabase, dept)
+      closeModal()
+    } finally {
+      setLoading(false)
+    }
+  })
 
   if (ready && insuffisant) {
     return (
@@ -88,7 +95,7 @@ export default function DemandeAttributionModal({ demande, produit, dept }) {
       footer={
         <>
           <Button variant="outline" onClick={closeModal}>Annuler</Button>
-          <Button loading={loading} style={{ background: color, borderColor: color }} onClick={handleSubmit}>
+          <Button loading={busy} disabled={busy} style={{ background: color, borderColor: color }} onClick={handleSubmit}>
             ✓ Attribuer et valider
           </Button>
         </>
@@ -105,7 +112,7 @@ export default function DemandeAttributionModal({ demande, produit, dept }) {
             <thead>
               <tr>
                 <th style={{ width: 30 }}></th>
-                <th>N° CNTO / Série</th><th>Emplacement</th><th>Valeur achat</th><th>Date entrée</th>
+                <th>N° CNTO / Série</th><th>Emplacement</th><th>État</th><th>Valeur achat</th><th>Date entrée</th>
               </tr>
             </thead>
             <tbody>
@@ -120,6 +127,7 @@ export default function DemandeAttributionModal({ demande, produit, dept }) {
                   </td>
                   <td className="cell-mono">{a.id}</td>
                   <td className="text-muted">{a.emplacement || '—'}</td>
+                  <td className="text-muted">{a.statut || '—'}</td>
                   <td className="text-muted" title={`${fmt(a.valeur_achat)} MGA`}>{fmtMoney(a.valeur_achat)}</td>
                   <td className="text-muted">{fmtDate(a.date_entree)}</td>
                 </tr>

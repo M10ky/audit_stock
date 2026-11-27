@@ -126,15 +126,20 @@ export default function UtilisateursTable() {
 
   const handleDeptChange = (p, newDept) => {
     if (newDept === p.dept) return
-    withSubmitLock(async () => {
-      setBusyRowId(p.id)
-      try {
-        const { error } = await updateUserRole(supabase, p.id, { dept: newDept })
-        if (error) return showToast('Erreur : ' + error.message, 'error')
-        showToast(`Département de ${p.name} mis à jour → ${newDept}`)
-      } finally {
-        setBusyRowId(null)
-      }
+    openConfirm({
+      title: `Changer le département de « ${p.name} » ?`,
+      message: `${p.dept} → ${newDept}. La visibilité des stocks et demandes change immédiatement pour cet utilisateur.`,
+      tone: 'warning',
+      onConfirm: () => withSubmitLock(async () => {
+        setBusyRowId(p.id)
+        try {
+          const { error } = await updateUserRole(supabase, p.id, { dept: newDept })
+          if (error) return showToast('Erreur : ' + error.message, 'error')
+          showToast(`Département de ${p.name} mis à jour → ${newDept}`)
+        } finally {
+          setBusyRowId(null)
+        }
+      }),
     })
   }
 

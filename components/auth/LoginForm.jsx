@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -8,6 +8,7 @@ import {
   IconMoon, IconSun,
 } from '@tabler/icons-react'
 import { useUiStore } from '@/store/uiStore'
+import { getLandingPath } from '@/lib/permissions'
 import Button from '@/components/ui/Button'
 
 export default function LoginForm() {
@@ -22,6 +23,16 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [alert, setAlert]     = useState(null)       // { type, msg }
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const reason = params.get('error')
+    if (reason === 'disabled') setAlert({ type: 'error', msg: 'Compte désactivé.' })
+    if (reason === 'profile') setAlert({ type: 'error', msg: 'Profil introuvable.' })
+    if (params.get('reset') === 'success') {
+      setAlert({ type: 'success', msg: 'Mot de passe mis à jour. Vous pouvez vous connecter.' })
+    }
+  }, [])
+
   // ── Connexion ────────────────────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -35,27 +46,50 @@ export default function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setAlert({ type: 'error', msg: 'Email ou mot de passe incorrect.' })
+      console.error('Login error:', error)
+      const msg = error?.message || ''
+      let detail = 'Connexion impossible pour le moment. Réessayez.'
+      if (/invalid login credentials/i.test(msg)) {
+        detail = 'Email ou mot de passe incorrect.'
+      } else if (/email not confirmed/i.test(msg)) {
+        detail = 'Confirmez votre adresse email avant de vous connecter.'
+      } else if (/too many requests|rate limit/i.test(msg)) {
+        detail = 'Trop de tentatives. Réessayez plus tard.'
+      }
+      setAlert({ type: 'error', msg: detail })
       setLoading(false)
       return
     }
 
     // Vérification compte actif
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: profile } = await supabase
+    if (!user) {
+      setAlert({ type: 'error', msg: 'Session introuvable.' })
+      setLoading(false)
+      return
+    }
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('is_active, name')
+      .select('is_active, name, role')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.is_active) {
+    if (profileError || !profile) {
       await supabase.auth.signOut()
-      setAlert({ type: 'error', msg: 'Votre compte est désactivé. Contactez l\'administrateur.' })
+      console.error('Profile check error:', profileError)
+      setAlert({ type: 'error', msg: 'Impossible de vérifier votre profil.' })
       setLoading(false)
       return
     }
 
-    router.push('/dashboard')
+    if (profile.is_active === false) {
+      await supabase.auth.signOut()
+      setAlert({ type: 'error', msg: 'Compte désactivé.' })
+      setLoading(false)
+      return
+    }
+
+    router.push(getLandingPath(profile))
     router.refresh()
   }
 
@@ -69,15 +103,32 @@ export default function LoginForm() {
     setLoading(true)
     setAlert(null)
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset`,
-    })
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/reset`
+      : `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset`
 
-    setLoading(false)
-    if (error) {
-      setAlert({ type: 'error', msg: 'Erreur lors de l\'envoi. Vérifiez l\'adresse email.' })
-    } else {
-      setAlert({ type: 'success', msg: 'Un email de réinitialisation a été envoyé.' })
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+      if (error) {
+        console.error('Forgot password error:', error)
+        setAlert({
+          type: 'error',
+          msg: 'Impossible d\'envoyer l\'email pour le moment. Réessayez plus tard.',
+        })
+        return
+      }
+      setAlert({
+        type: 'success',
+        msg: 'Si cette adresse est associée à un compte, un email de réinitialisation a été envoyé.',
+      })
+    } catch (err) {
+      console.error('Forgot password error:', err)
+      setAlert({
+        type: 'error',
+        msg: 'Impossible d\'envoyer l\'email pour le moment. Réessayez plus tard.',
+      })
+    } finally {
+      setLoading(false)
     }
   }
 

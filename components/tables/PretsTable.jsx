@@ -1,7 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { IconTransfer, IconPlus, IconDownload, IconEye } from '@tabler/icons-react'
-import { usePretsStore, STATUS_PRET, TRANSITIONS_ACTIF_UNUSED, isValidTransition, joursRestants, getActifNumero } from '@/store/pretsStore'
+import { usePretsStore, STATUS_PRET, isValidTransition, joursRestants, getActifNumero } from '@/store/pretsStore'
 import { useActifsStore } from '@/store/actifsStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
@@ -77,6 +77,7 @@ export default function PretsTable({ dept }) {
       title: `Confirmer le retour de "${actifNum}" ?`,
       message: `L'actif "${p.produit_nom || actifNum}" confié à ${p.emprunteur} repassera en statut En service.`,
       onConfirm: () => withSubmitLock(async () => {
+        if (p.dept === 'IT' ? !perm.canManIT : !perm.canManFin) return showToast('Action non autorisée', 'error')
         const { error } = await retournerPretAction(supabase, p.id, profile?.name, profile?.id)
         if (error) return showToast('Erreur : ' + error.message, 'error')
         showToast(`"${actifNum}" retourné — remis en service`)
@@ -92,6 +93,7 @@ export default function PretsTable({ dept }) {
       message: `L'actif "${p.produit_nom || actifNum}" confié à ${p.emprunteur} sera définitivement réformé. Cette action est irréversible.`,
       danger: true,
       onConfirm: () => withSubmitLock(async () => {
+        if (p.dept === 'IT' ? !perm.canManIT : !perm.canManFin) return showToast('Action non autorisée', 'error')
         const { error } = await perdreActifAction(supabase, p.id, profile?.name, profile?.id)
         if (error) return showToast('Erreur : ' + error.message, 'error')
         showToast(`"${actifNum}" déclaré perdu — réformé`)
@@ -106,6 +108,7 @@ export default function PretsTable({ dept }) {
       title: `Confirmer que "${actifNum}" a été retrouvé ?`,
       message: `L'actif "${p.produit_nom || actifNum}" repassera en statut En service.`,
       onConfirm: () => withSubmitLock(async () => {
+        if (p.dept === 'IT' ? !perm.canManIT : !perm.canManFin) return showToast('Action non autorisée', 'error')
         const { data, error } = await retrouverActifAction(supabase, p.id, profile?.name, profile?.id)
         if (error) return showToast('Erreur : ' + error.message, 'error')
         showToast(`"${actifNum}" retrouvé et réintégré par ${data?.par || profile?.name}`)
@@ -175,13 +178,13 @@ export default function PretsTable({ dept }) {
           <table className="table">
             <thead>
               <tr>
-                <th>Produit</th><th>Emprunteur</th><th>Date début</th><th>Retour prévu</th>
+                <th>ID Prêt</th><th>Produit</th><th>Emprunteur</th><th>Date début</th><th>Retour prévu</th>
                 <th>Délai</th><th>Notes</th><th>Motif</th><th>Statut</th><th>Retour effectif</th><th>Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={10}><div className="empty-state"><p>Aucun prêt ne correspond</p></div></td></tr>
+                <tr><td colSpan={11}><div className="empty-state"><p>Aucun prêt ne correspond</p></div></td></tr>
               )}
               {filtered.map(p => {
                 const actifNum = getActifNumero(p)
@@ -194,6 +197,9 @@ export default function PretsTable({ dept }) {
 
                 return (
                   <tr key={p.id} style={p.statut === STATUS_PRET.EN_RETARD ? { background: '#fff5f5' } : p.statut === STATUS_PRET.PERDU ? { background: 'var(--purple-l)' } : {}}>
+                    <td><code className="cell-mono" style={{ fontSize: 9 }}>
+                      <span dangerouslySetInnerHTML={highlight(p.id || '—', q)} />
+                    </code></td>
                     <td className="cell-name">
                       <span dangerouslySetInnerHTML={highlight(p.produit_nom || '—', q)} /><br />
                       <code className="cell-mono" style={{ fontSize: 11 }}>
@@ -205,7 +211,7 @@ export default function PretsTable({ dept }) {
                     <td style={{ fontWeight: 600 }}>{p.date_retour_prevue ? fmtDate(p.date_retour_prevue) : '—'}</td>
                     <td style={{ color: delaiColor, fontWeight: 700, fontSize: 11 }}>{delaiLabel}</td>
                     <td className="text-muted" style={{ fontSize: 11 }}>{p.notes || '—'}</td>
-                    <td className="text-muted" style={{ maxWidth: 120, fontSize: 11 }}>{(p.motif || '').slice(0, 55)}</td>
+                    <td className="text-muted" style={{ maxWidth: 120, fontSize: 11 }}><span dangerouslySetInnerHTML={highlight((p.motif || '').slice(0, 55), q)} /></td>
                     <td><PretStatutBadge statut={p.statut} /></td>
                     <td className="text-muted" style={{ fontSize: 11 }}>{p.date_retour_reelle ? fmtDate(p.date_retour_reelle) : '—'}</td>
                     <td>

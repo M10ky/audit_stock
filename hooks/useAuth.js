@@ -17,22 +17,35 @@ export function useAuth() {
   const supabase = createClient()
 
   const {
-    user, profile, setUser, setProfile,
-    loadProfile, loadAllProfiles, setLoading, reset,
+    user, profile, setUser,
+    loadProfile, setLoading, reset,
   } = useAuthStore()
 
   const { resetData } = useDataStore()
   const resetActifs = useActifsStore((s) => s.resetActifs)
 
   useEffect(() => {
+    const loadSessionProfile = async (sessionUser) => {
+      if (!sessionUser) return false
+      setUser(sessionUser)
+      const { error } = await loadProfile(supabase, sessionUser.id)
+      if (!error) return true
+      await supabase.auth.signOut()
+      reset()
+      resetData()
+      resetActifs()
+      router.push('/login')
+      return false
+    }
+
     // Récupération de la session initiale
     const init = async () => {
       setLoading(true)
       const { data: { session } } = await supabase.auth.getSession()
 
-      if (session?.user) {
-        setUser(session.user)
-        await loadProfile(supabase, session.user.id)
+      if (session?.user && !(await loadSessionProfile(session.user))) {
+        setLoading(false)
+        return
       }
       setLoading(false)
     }
@@ -42,9 +55,8 @@ export function useAuth() {
     // Écoute des changements d'état auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user)
-          await loadProfile(supabase, session.user.id)
+        if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
+          await loadSessionProfile(session.user)
         }
         if (event === 'SIGNED_OUT') {
           reset()

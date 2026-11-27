@@ -20,7 +20,9 @@ import DeptBanner from '@/components/layout/DeptBanner'
 
 function NavLink({ href, icon: Icon, label, badge, deptClass }) {
   const pathname = usePathname()
-  const active   = pathname === href || pathname.startsWith(href + '/')
+  const current  = pathname.toLowerCase()
+  const target   = href.toLowerCase()
+  const active   = current === target || current.startsWith(target + '/')
   const close    = useUiStore(s => s.closeSidebar)
 
   const activeClass = deptClass === 'fin'

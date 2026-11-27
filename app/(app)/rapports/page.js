@@ -13,6 +13,7 @@ import { useDataStore } from '@/store/dataStore'
 import { useActifsStore } from '@/store/actifsStore'
 import { usePretsStore, getActifNumero } from '@/store/pretsStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import AccessDenied from '@/components/ui/AccessDenied'
 import { useDateFilter } from '@/hooks/useDateFilter'
 import { createClient } from '@/lib/supabase/client'
 import { exportRapportHebdoCSV } from '@/lib/csv'
@@ -310,8 +311,14 @@ function WeekDeptBlock({ dept, stats, showP, canSeeAssets, onExport }) {
 }
 
 export default function RapportsPage() {
-  const router = useRouter()
   const perm = usePermissions()
+  if (!perm.canSeeHist) return <AccessDenied />
+
+  return <RapportsContent perm={perm} />
+}
+
+function RapportsContent({ perm }) {
+  const router = useRouter()
   const { dateFrom, dateTo, filterByDate } = useDateFilter()
   const supabase = createClient()
 

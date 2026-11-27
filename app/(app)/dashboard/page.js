@@ -74,14 +74,16 @@ export default function DashboardPage() {
   if (perm.canManFin) kpis.push({ icon: IconClipboardList, color: 'amber', value: attFin, label: 'Demandes Finance en attente', sub: 'à traiter' })
 
   const recent = [...mouvements]
+    .filter(m => (m.dept === 'IT' && perm.canSeeIT) || (m.dept === 'Finance' && perm.canSeeFin))
     .filter(m => filterByDate(m.created_at || m.date))
-    .filter(m => (m.dept === 'IT' ? perm.canSeeIT : perm.canSeeFin))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 10)
 
   // Mirrors js/reports.js drawCharts() chart-mvt : uniquement la PÉRIODE
   // sélectionnée (fMvtIT/fMvtFin = inRange), par jour, puis les 8 dernières dates.
-  const mvtPeriode = mouvements.filter(m => filterByDate(m.created_at || m.date))
+  const mvtPeriode = mouvements
+    .filter(m => (m.dept === 'IT' && perm.canSeeIT) || (m.dept === 'Finance' && perm.canSeeFin))
+    .filter(m => filterByDate(m.created_at || m.date))
   const mvtByDay = useMemo(() => {
     const dates = [...new Set(mvtPeriode.map(m => (m.created_at || m.date).slice(0, 10)))].sort().slice(-8)
     const countFor = (d, type) => mvtPeriode
@@ -303,7 +305,14 @@ export default function DashboardPage() {
                         <td className="col-date"><div className="dt-date">{date}</div><div className="dt-time">{time}</div></td>
                         <td><DeptTag dept={m.dept} /></td>
                         <td><TypeBadge type={m.type} /></td>
-                        <td className="cell-name">{m.produit_nom}</td>
+                        <td className="cell-name">
+                          {m.produit_nom}
+                          {m.actif_id && (
+                            <code className="actif-id" style={{ marginTop: 2, display: 'inline-block' }}>
+                              {m.actif_id}
+                            </code>
+                          )}
+                        </td>
                         <td style={{ fontWeight: 700 }}>{m.qty}</td>
                         <td className="text-muted">{m.emplacement || '—'}</td>
                         <td className="text-muted">{m.destination || '—'}</td>

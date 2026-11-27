@@ -30,14 +30,14 @@ export default function HistoriqueTable() {
     ...mouvements.map(m => ({
       id: m.id, dept: m.dept, src: 'Mouvement', label: m.type, mvt: m,
       produit: m.produit_nom, actifId: m.actif_id || null, qty: m.qty,
-      lieu: m.emplacement || m.destination,
+      lieu: m.emplacement || m.destination, dest: m.destination,
       actor: m.user_name, detail: m.observation,
       created_at: m.created_at || m.date,
     })),
     ...demandes.map(d => ({
       id: d.id, dept: d.dept, src: 'Demande', label: d.statut,
       produit: d.produit, qty: d.qty,
-      lieu: d.dest,
+      lieu: d.dest, dest: d.dest,
       actor: d.demandeur, detail: d.motif,
       created_at: d.created_at || d.date,
     })),
@@ -160,7 +160,7 @@ export default function HistoriqueTable() {
                       <span dangerouslySetInnerHTML={highlight(h.actor, q)} />
                     </td>
                     <td className="text-muted" style={{ maxWidth: 140, fontSize: 12 }}>
-                      <span dangerouslySetInnerHTML={highlight(h.detail || '', q).slice(0, 60)} />
+                      <span dangerouslySetInnerHTML={highlight((h.detail || '').slice(0, 60), q)} />
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       {h.src === 'Mouvement' && canEditMvt(h.mvt, user, profile, perm) && (

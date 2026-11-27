@@ -2,6 +2,7 @@
 import { create } from 'zustand'
 import { genId } from '@/lib/helpers'
 import { getCatAbbr, generateNomenclature, buildActifNote } from '@/lib/actifs'
+import { STATUS_PRET } from '@/store/pretsStore'
 
 export const useActifsStore = create((set, get) => ({
 
@@ -82,7 +83,8 @@ export const useActifsStore = create((set, get) => ({
           date_entree:         ts,
           // Toujours le prix de CETTE entrée précise — jamais un repli sur
           // produits.valeur_achat (champ catalogue rarement configuré).
-          valeur_achat:        (prixUnit !== null && prixUnit > 0) ? prixUnit : 0,
+          // 0 = actif déjà entièrement amorti (valeur métier valide).
+          valeur_achat:        (prixUnit !== null && prixUnit !== undefined) ? Math.max(0, Number(prixUnit)) : 0,
           // Règle métier : date_achat = date LOCALE de la transaction saisie
           // (jamais un découpage UTC d'un ISO, qui décalerait d'un jour).
           date_achat:          mvtDate?.date || now.slice(0, 10),
@@ -106,10 +108,18 @@ export const useActifsStore = create((set, get) => ({
       if (seqWErr) throw seqWErr
 
       await get().loadActifs(supabase)
-      return { ok: true, first: actifs[0].id, last: actifs[actifs.length - 1].id }
+      const first = actifs[0]?.id
+      const last = actifs[actifs.length - 1]?.id
+      return {
+        ok: true,
+        first,
+        last,
+        message: `Actif(s) créé(s) : ${first}${first !== last ? ` → ${last}` : ''}`,
+      }
     } catch (err) {
       console.error('[createActifUnits]', err)
-      return { ok: false, message: err?.message || err?.error_description || String(err) }
+      const detail = err?.message || err?.error_description || String(err)
+      return { ok: false, message: `Création actif échouée : ${detail}` }
     }
   },
 
@@ -171,7 +181,7 @@ export const useActifsStore = create((set, get) => ({
       p_produit_id: produit.id,
       p_actif_ids:  actifIds,
       p_dept:       dept,
-      p_dest:       dest || null,
+      p_dest:       dest || '',
       p_mvt_ids:    mvtIds,
       p_user_name:  profile?.name || 'Système',
       p_user_id:    profile?.id || null,
@@ -206,7 +216,7 @@ export const useActifsStore = create((set, get) => ({
       p_produit_id: produit.id,
       p_actif_ids:  actifIds,
       p_dept:       dept,
-      p_dest:       dest || null,
+      p_dest:       dest || '',
       p_mvt_ids:    mvtIds,
       p_user_name:  profile?.name || 'Système',
       p_user_id:    profile?.id || null,
@@ -233,17 +243,19 @@ export const useActifsStore = create((set, get) => ({
   },
 
   // Remise en service directe. Si l'actif est "En prêt", le retour DOIT
-  // passer par le module Prêts (Étape F) — sinon l'actif redevient
+  // passer par pretsStore.retournerPret() — sinon l'actif redevient
   // "En service" pendant que son prêt reste affiché "En cours", deux
-  // vérités contradictoires pour la même ligne. Bloqué explicitement
-  // plutôt que mal implémenté tant que le module n'existe pas.
-  reactiverActif: async (supabase, actif, profile) => {
+  // vérités contradictoires pour la même ligne.
+  reactiverActif: async (supabase, actif, profile, prets = []) => {
     if (actif.statut === 'En prêt') {
-      return {
-        error: {
-          message: "Cet actif est en prêt — le retour doit passer par le module Prêts (à venir, Étape F).",
-        },
+      const pretOuvert = (prets || []).find(p =>
+        (p.actif_numero === actif.id || p.produit_id === actif.id) &&
+        (p.statut === STATUS_PRET.EN_COURS || p.statut === STATUS_PRET.EN_RETARD)
+      )
+      if (!pretOuvert) {
+        return { error: { message: "Aucun prêt ouvert trouvé pour cet actif." } }
       }
+      return { requiresPretReturn: true, pretId: pretOuvert.id }
     }
     const note = buildActifNote(actif, 'Remise en service', profile?.name)
     const { error } = await supabase

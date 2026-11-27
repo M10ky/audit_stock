@@ -34,6 +34,7 @@ export default function DemandesTable({ dept }) {
   const { filterState, setFilterState, applyFilters } = useInlineFilter(pageKey)
   const [loadingRowId, setLoadingRowId] = useState(null)
 
+  const canDem = dept === 'IT' ? perm.canDemIT : perm.canDemFin
   const canVal = dept === 'IT' ? perm.canValidIT : perm.canValidFin
   const color  = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 
@@ -42,6 +43,15 @@ export default function DemandesTable({ dept }) {
   const filtered  = applyFilters(demandes, 'demande')
   const enAttente = filtered.filter(d => d.statut === 'En attente').length
   const q         = filterState.query
+
+  // Règle métier (js/app.js renderDemandesTable) : les actifs attribués à une
+  // demande restent affichés sous le produit (champ actif_ids/actifIds/actif_id).
+  const getActifIds = (d) => {
+    const raw = d.actif_ids ?? d.actifIds ?? d.actif_id
+    if (Array.isArray(raw)) return raw.filter(Boolean)
+    if (typeof raw === 'string') return raw.split(',').map(s => s.trim()).filter(Boolean)
+    return raw ? [raw] : []
+  }
 
   // Règle métier (js/export.js exportDemandesCSV) : export de la liste filtrée
   // courante (query/urgence/statut). L'urgence définit le défaut « Normale »
@@ -149,13 +159,15 @@ export default function DemandesTable({ dept }) {
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <Button variant="outline" icon={IconDownload} onClick={handleExport}>CSV</Button>
-        <Button
-          icon={IconPlus}
-          style={{ background: color, borderColor: color }}
-          onClick={() => openModal('demande', { dept })}
-        >
-          Nouvelle demande
-        </Button>
+        {canDem && (
+          <Button
+            icon={IconPlus}
+            style={{ background: color, borderColor: color }}
+            onClick={() => openModal('demande', { dept })}
+          >
+            Nouvelle demande
+          </Button>
+        )}
       </div>
 
       <InlineSearchBar
@@ -198,6 +210,7 @@ export default function DemandesTable({ dept }) {
               {filtered.map(d => {
                 const created = fmtDTSplit(d.created_at || d.date)
                 const updated = fmtDTSplit(d.updated_at)
+                const actifIds = getActifIds(d)
                 // Mirrors js/stock.js renderDemandesTable() (Étape B) : alerte
                 // visuelle quand la demande porte sur un produit désactivé —
                 // le validateur ne peut plus agir tant qu'il n'est pas réactivé.
@@ -218,6 +231,12 @@ export default function DemandesTable({ dept }) {
                     </td>
                     <td style={{ fontWeight: 500 }}>
                       <span dangerouslySetInnerHTML={highlight(d.produit, q)} />
+                      {actifIds.length > 0 && (
+                        <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text3)', marginTop: 2 }}>
+                          N° actif :{' '}
+                          <span className="cell-mono" dangerouslySetInnerHTML={highlight(actifIds.join(', '), q)} />
+                        </div>
+                      )}
                       {prodInactif && (
                         <div style={{ fontSize: 10.5, fontWeight: 700, color: '#f59e0b', marginTop: 2 }}>
                           produit inactif

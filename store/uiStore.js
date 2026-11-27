@@ -1,5 +1,17 @@
 import { create } from 'zustand'
 
+function localDateISO(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+const initialDates = (() => {
+  const today = localDateISO()
+  return { dateFrom: `${today.slice(0, 7)}-01`, dateTo: today }
+})()
+
 /**
  * Store UI global.
  * Remplace toutes les manipulations directes du DOM du fichier ST.
@@ -80,8 +92,7 @@ export const useUiStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
   //  FILTRE DATES (partagé Topbar → tables)
   // ══════════════════════════════════════════════════════════
-  dateFrom: '',
-  dateTo:   '',
+  ...initialDates,
 
   setDateFrom:    (v) => set({ dateFrom: v }),
   setDateTo:      (v) => set({ dateTo: v }),
@@ -94,11 +105,16 @@ export const useUiStore = create((set, get) => ({
 
   initTheme: () => {
     if (typeof window === 'undefined') return
-    const stored = localStorage.getItem('cs-theme')
+    const stored = localStorage.getItem('cs-theme') ?? localStorage.getItem('theme')
     const t = stored === 'dark' || stored === 'light'
       ? stored
       : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     set({ theme: t })
+  },
+
+  hasThemePreference: () => {
+    if (typeof window === 'undefined') return false
+    return !!(localStorage.getItem('cs-theme') || localStorage.getItem('theme'))
   },
 
   toggleTheme: () => {

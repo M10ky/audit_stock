@@ -20,6 +20,8 @@ export function useRealtime() {
     onRealtimeProduit,
     onRealtimeMouvement,
     onRealtimeDemande,
+    loadMouvements,
+    loadMouvementsEntrees,
     loadParams,
   } = useDataStore()
 
@@ -35,6 +37,20 @@ export function useRealtime() {
     const deptFilter = dept !== 'both'
       ? `dept=eq.${dept}`
       : undefined
+
+    // Règle métier : le handler store n'applique que les INSERT localement —
+    // une correction ou suppression de mouvement impose un reload ciblé des
+    // mouvements (et des entrées qui alimentent le CUMP).
+    const onMouvementChange = (payload) => {
+      if (payload.eventType === 'INSERT') {
+        onRealtimeMouvement(payload)
+        return
+      }
+      Promise.all([
+        loadMouvements(supabase, dept),
+        loadMouvementsEntrees(supabase),
+      ])
+    }
 
     // Nettoyage de l'ancien channel si re-render
     if (channelRef.current) {
@@ -54,11 +70,11 @@ export function useRealtime() {
 
       // ── Mouvements ───────────────────────────────────────
       .on('postgres_changes', {
-        event:  'INSERT',
+        event:  '*',
         schema: 'public',
         table:  'mouvements',
         ...(deptFilter ? { filter: deptFilter } : {}),
-      }, onRealtimeMouvement)
+      }, onMouvementChange)
 
       // ── Demandes ─────────────────────────────────────────
       .on('postgres_changes', {

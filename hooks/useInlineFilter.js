@@ -49,13 +49,19 @@ export function useInlineFilter(pageKey) {
           if (mvtType && item.type !== mvtType) return false
           break
         case 'demande':
-          if (q && !matchesQuery([item.produit, item.demandeur, item.motif, item.dest, item.id], q))
-            return false
+          // Règle métier (js/app.js renderDemandesTable) : les actifs attribués
+          // sont recherchables en même temps que le produit de la demande.
+          if (q && !matchesQuery([
+            item.produit, item.demandeur, item.motif, item.dest, item.id,
+            item.actif_ids, item.actifIds, item.actif_id,
+          ], q)) return false
           if (urgence && item.urgence !== urgence)   return false
           if (statDem && item.statut  !== statDem)   return false
           break
         case 'historique':
-          if (q && !matchesQuery([item.produit, item.actor, item.detail, item.lieu, item.id, item.actifId], q))
+          // Règle métier (js/stock.js renderHistorique) : recherche sur la
+          // destination seule (dest), pas sur emplacement || destination.
+          if (q && !matchesQuery([item.produit, item.actor, item.detail, item.dest, item.id, item.actifId], q))
             return false
           break
         case 'actif':

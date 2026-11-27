@@ -23,7 +23,22 @@ npm run lint
 ```
 
 Variables d'environnement requises (`.env.local`) :
-`NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` et
+`NEXT_PUBLIC_SITE_URL` (origine réelle, ex. `http://localhost:3000` en local).
+
+### Mot de passe oublié — checklist Supabase
+
+- [ ] `NEXT_PUBLIC_SITE_URL` défini à la même origine que l'application
+  (ex. `http://localhost:3000` en dev, `https://…` en prod).
+- [ ] Supabase → Authentication → URL configuration : **Site URL** = même
+  origine, et **Redirect URLs** inclut `${NEXT_PUBLIC_SITE_URL}/auth/reset`
+  (ajouter explicitement `http://localhost:3000/auth/reset` pour le dev).
+- [ ] Template email « Reset password » activé.
+
+Le flux self-service utilise `resetPasswordForEmail` (redirect vers
+`/auth/reset`) puis `updateUser({ password })` sur la page de reset. La route
+`POST /api/users/reset-password` reste réservée aux admins (`requireManUsers`)
+et n'est pas utilisée par le login public.
 
 ## Structure
 
@@ -140,8 +155,8 @@ de dump de fichier complet, une étape validée avant de passer à la suivante.
 - **Étape K — Export CSV** : auditée, **déjà 100 % paritaire** — `lib/csv.js`
   (`exportToCSV`/`todayFileDate`/`escapeCell`) complet ; boutons CSV présents
   sur toutes les pages (Produits, Mouvements, Demandes, Historique, Alertes,
-  Actifs, Prêts, Utilisateurs, Amortissement). `exportRapportsCSV` n'existe
-  pas côté Next.js mais n'est jamais appelé côté Vanilla non plus (parité).
+  Actifs, Prêts, Utilisateurs, Amortissement). `exportRapportsCSV` est
+  standardisé dans `lib/csv.js` mais non câblé, comme côté Vanilla.
 - **Étape L — Recherche globale + Realtime** : **déjà faite** —
   `SearchOverlay.jsx`/`useSearch.js` indexent les 5 sections (produits,
   mouvements, demandes, **actifs**, **prets** — les deux dernières mirrors
@@ -179,8 +194,8 @@ parité) :
   Pourrait être ajouté pour une sync auto des profils admin en live.
 - **J2** (cosmétique panel paramètres) et **J3** (select département en
   création de demande = extension) : laissés volontairement de côté.
-- **`exportRapportsCSV`** : à implémenter seulement si un export consolidé
-  des rapports est demandé (jamais appelé dans l'UI Vanilla).
+- **`exportRapportsCSV`** : disponible dans `lib/csv.js`, non câblé dans l'UI
+  (jamais appelé dans l'UI Vanilla).
 
 ## Points de vigilance / dette non résolue
 

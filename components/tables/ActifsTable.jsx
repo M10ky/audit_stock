@@ -8,10 +8,11 @@ import { useDataStore } from '@/store/dataStore'
 import { useActifsStore } from '@/store/actifsStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUiStore } from '@/store/uiStore'
+import { usePretsStore } from '@/store/pretsStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useInlineFilter } from '@/hooks/useInlineFilter'
 import { createClient } from '@/lib/supabase/client'
-import { fmt, fmtDate, fmtMoney } from '@/lib/helpers'
+import { fmt, fmtDate, fmtDT, fmtMoney } from '@/lib/helpers'
 import { highlight } from '@/hooks/useSearch'
 import {
   STATUS_ACTIF, TRANSITIONS_ACTIF, isValidTransition,
@@ -29,6 +30,10 @@ export default function ActifsTable({ dept }) {
   const profile = useAuthStore(s => s.profile)
   const { openModal, openConfirm, showToast, withSubmitLock } = useUiStore()
   const loadProduits = useDataStore(s => s.loadProduits)
+  const loadMouvements = useDataStore(s => s.loadMouvements)
+  const prets = usePretsStore(s => s.prets)
+  const loadPrets = usePretsStore(s => s.loadPrets)
+  const retournerPret = usePretsStore(s => s.retournerPret)
 
   const actifs                = useActifsStore(s => s.actifs.filter(a => a.dept === dept))
   const loadActifs            = useActifsStore(s => s.loadActifs)
@@ -39,7 +44,6 @@ export default function ActifsTable({ dept }) {
   const syncStockDepuisActifs = useActifsStore(s => s.syncStockDepuisActifs)
 
   const canM  = dept === 'IT' ? perm.canManIT : perm.canManFin
-  const color = dept === 'IT' ? 'var(--indigo)' : 'var(--green)'
 
   // Query inline alimentée par la recherche globale (Ctrl+K → page),
   // mirrors js/app.js runSearch() → setInlineQuery(a.id).
@@ -72,7 +76,7 @@ export default function ActifsTable({ dept }) {
     { lbl: 'Réformés',     val: nbRf, s: 'fin de vie',           c: 'var(--text3)' },
   ]
   if (perm.canSeePrix && actifs.length) {
-    kpis.push({ lbl: 'VNC Totale', raw: vncTotale, val: `${fmt(vncTotale)} MGA`, s: `sur ${fmt(valTotale)} MGA d'achat`, c: 'var(--indigo)' })
+    kpis.push({ lbl: 'VNC Totale (actifs actifs)', raw: vncTotale, val: `${fmt(vncTotale)} MGA`, s: `sur ${fmt(valTotale)} MGA d'achat`, c: 'var(--indigo)' })
   }
 
   const afterActifChange = async (produitId) => {
@@ -89,8 +93,19 @@ export default function ActifsTable({ dept }) {
   })
 
   const handleReactiver = (a) => withSubmitLock(async () => {
-    const { error } = await reactiverActif(supabase, a, profile)
-    if (error) return showToast(error.message, 'error')
+    const res = await reactiverActif(supabase, a, profile, prets)
+    if (res?.requiresPretReturn) {
+      const { error } = await retournerPret(supabase, res.pretId, profile?.name, profile?.id)
+      if (error) return showToast('Erreur : ' + error.message, 'error')
+      await syncStockDepuisActifs(supabase, a.produit_id)
+      showToast(`"${a.id}" réactivé en service`)
+      await loadActifs(supabase)
+      await loadPrets(supabase)
+      await loadMouvements(supabase)
+      await loadProduits(supabase, dept)
+      return
+    }
+    if (res?.error) return showToast(res.error.message, 'error')
     showToast(`"${a.id}" réactivé en service`)
     await afterActifChange(a.produit_id)
   })
@@ -118,6 +133,7 @@ export default function ActifsTable({ dept }) {
         if (error) return showToast('Erreur : ' + error.message, 'error')
         showToast(`"${a.id}" réintégré — remis en service`)
         await loadActifs(supabase)
+        await loadMouvements(supabase)
         await loadProduits(supabase, dept)
       }),
     })
@@ -128,11 +144,11 @@ export default function ActifsTable({ dept }) {
     const headers = ['Produit', 'Numéro de série', 'Catégorie', 'Emplacement', 'Statut', 'Date entrée', 'Mouvement entrée']
     if (showP) headers.push('Valeur achat (MGA)', 'Date achat', 'Durée amort. (mois)', 'VNC (MGA)', '% Amorti')
     const rows = actifs.map(a => {
-      const row = [a.produit_nom, a.id, a.categorie, a.emplacement || '', a.statut, fmtDate(a.date_entree), a.mouvement_entree_id || '']
+      const row = [a.produit_nom, a.id, a.categorie, a.emplacement || '', a.statut, fmtDT(a.date_entree), a.mouvement_entree_id || '']
       if (showP) {
         const vnc = calcVNCActif(a)
         const pct = amortPctActif(a)
-        row.push(a.valeur_achat || 0, a.date_achat || '', a.duree_amortissement || '', vnc, pct != null ? pct + '%' : '')
+        row.push(a.valeur_achat || 0, a.date_achat || '', a.duree_amortissement || '', vnc == null ? '' : vnc, pct != null ? pct + '%' : '')
       }
       return row
     })
@@ -258,7 +274,7 @@ export default function ActifsTable({ dept }) {
                             </Button>
                           )}
                           <Button size="icon" variant="outline" title="Modifier"
-                            onClick={() => openModal('edit-actif', { actif: a })}>
+                            onClick={() => canM ? openModal('edit-actif', { actif: a }) : openModal('actif-historique', { actif: a })}>
                             <IconEdit size={14} />
                           </Button>
                           <Button size="icon" variant="outline" title="Historique"

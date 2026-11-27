@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 import { genId, getCUMPProduit } from '@/lib/helpers'
 import { useAuthStore } from '@/store/authStore'
+import { useUiStore } from '@/store/uiStore'
+import { isAdmin, isLecteur, canManIT, canManFin, canDemIT, canDemFin } from '@/lib/permissions'
+
+function dayBoundsISO() {
+  const { dateFrom, dateTo } = useUiStore.getState()
+  const from = dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : null
+  const to = dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : null
+  return { from, to }
+}
 
 export const useDataStore = create((set, get) => ({
 
@@ -34,11 +43,15 @@ export const useDataStore = create((set, get) => ({
 
   loadMouvements: async (supabase, dept) => {
     set({ loadingMouvements: true })
+    const { from, to } = dayBoundsISO()
     let q = supabase
       .from('mouvements')
       .select('*')
       .order('created_at', { ascending: false })
+      .limit(500)
     if (dept && dept !== 'both') q = q.eq('dept', dept)
+    if (from) q = q.gte('created_at', from)
+    if (to) q = q.lte('created_at', to)
     const { data, error } = await q
     if (!error && data) set({ mouvements: data })
     set({ loadingMouvements: false })
@@ -47,11 +60,15 @@ export const useDataStore = create((set, get) => ({
 
   loadDemandes: async (supabase, dept) => {
     set({ loadingDemandes: true })
+    const { from, to } = dayBoundsISO()
     let q = supabase
       .from('demandes')
       .select('*')
       .order('created_at', { ascending: false })
+      .limit(300)
     if (dept && dept !== 'both') q = q.eq('dept', dept)
+    if (from) q = q.gte('created_at', from)
+    if (to) q = q.lte('created_at', to)
     const { data, error } = await q
     if (!error && data) set({ demandes: data })
     set({ loadingDemandes: false })
@@ -104,6 +121,9 @@ export const useDataStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
 
   submitAdd: async (supabase, payload) => {
+    const profile = useAuthStore.getState().profile
+    const canWrite = payload?.dept === 'IT' ? canManIT(profile) : canManFin(profile)
+    if (!canWrite) return { ok: false, error: { message: 'Accès refusé : gestion de stock non autorisée' }, message: 'Accès refusé : gestion de stock non autorisée' }
     // Préfixe dérivé du département, miroir exact de js/stock.js:
     // genId(dept === 'IT' ? 'IT' : 'FIN'). Sans ce préfixe, generateNomenclature()
     // (Étape E) produirait des numéros CNTO-… incohérents pour ce produit.
@@ -111,15 +131,20 @@ export const useDataStore = create((set, get) => ({
     const { error } = await supabase
       .from('produits')
       .insert([{ id: genId(prefix), ...payload }])
-    return { error }
+    return { ok: !error, error }
   },
 
   submitEdit: async (supabase, id, payload) => {
+    const profile = useAuthStore.getState().profile
+    const existing = get().produits.find(p => p.id === id)
+    const dept = payload?.dept || existing?.dept
+    const canWrite = dept === 'IT' ? canManIT(profile) : canManFin(profile)
+    if (!canWrite) return { ok: false, error: { message: 'Accès refusé : gestion de stock non autorisée' }, message: 'Accès refusé : gestion de stock non autorisée' }
     const { error } = await supabase
       .from('produits')
       .update(payload)
       .eq('id', id)
-    return { error }
+    return { ok: !error, error }
   },
 
   // Mirrors js/stock.js createAjustementMouvement() : un ajustement manuel de
@@ -156,21 +181,29 @@ export const useDataStore = create((set, get) => ({
   },
 
   deleteProduit: async (supabase, id) => {
+    const profile = useAuthStore.getState().profile
+    const existing = get().produits.find(p => p.id === id)
+    const canWrite = existing?.dept === 'IT' ? canManIT(profile) : canManFin(profile)
+    if (!canWrite) return { ok: false, error: { message: 'Accès refusé : gestion de stock non autorisée' }, message: 'Accès refusé : gestion de stock non autorisée' }
     const { error } = await supabase
       .from('produits')
       .delete()
       .eq('id', id)
-    return { error }
+    return { ok: !error, error }
   },
 
   // Mirrors js/stock.js toggleProductActif() : bascule actif/inactif d'un produit.
   // updated_at horodaté (nowISO() du Vanilla) pour alimenter la colonne « Dernière MAJ».
   toggleProductActif: async (supabase, id, actif) => {
+    const profile = useAuthStore.getState().profile
+    const existing = get().produits.find(p => p.id === id)
+    const canWrite = existing?.dept === 'IT' ? canManIT(profile) : canManFin(profile)
+    if (!canWrite) return { ok: false, error: { message: 'Accès refusé : gestion de stock non autorisée' }, message: 'Accès refusé : gestion de stock non autorisée' }
     const { error } = await supabase
       .from('produits')
       .update({ actif, updated_at: new Date().toISOString() })
       .eq('id', id)
-    return { error }
+    return { ok: !error, error }
   },
 
   // ══════════════════════════════════════════════════════════
@@ -209,12 +242,16 @@ export const useDataStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
 
   submitDem: async (supabase, payload) => {
+    const profile = useAuthStore.getState().profile
+    if (isLecteur(profile)) return { ok: false, error: { message: 'Lecture seule : création de demande refusée' }, message: 'Lecture seule : création de demande refusée' }
+    const canDem = payload?.dept === 'IT' ? canDemIT(profile) : canDemFin(profile)
+    if (!canDem) return { ok: false, error: { message: 'Accès refusé : création de demande non autorisée' }, message: 'Accès refusé : création de demande non autorisée' }
     // Mirrors js/stock.js: genId(dept === 'IT' ? 'DEM-IT' : 'DEM-FIN')
     const prefix = payload.dept === 'IT' ? 'DEM-IT' : 'DEM-FIN'
     const { error } = await supabase
       .from('demandes')
       .insert([{ id: genId(prefix), ...payload }])
-    return { error }
+    return { ok: !error, error }
   },
 
   validDem: async (supabase, id, updates) => {
@@ -230,19 +267,23 @@ export const useDataStore = create((set, get) => ({
   // ══════════════════════════════════════════════════════════
 
   addParam: async (supabase, cle, valeur) => {
+    const profile = useAuthStore.getState().profile
+    if (!isAdmin(profile)) return { ok: false, error: { message: 'Accès refusé : paramètres réservés aux administrateurs' }, message: 'Accès refusé : paramètres réservés aux administrateurs' }
     const { error } = await supabase.from('parametres').insert({ cle, valeur })
     if (!error) await get().loadParams(supabase)
-    return { error }
+    return { ok: !error, error }
   },
 
   removeParam: async (supabase, cle, valeur) => {
+    const profile = useAuthStore.getState().profile
+    if (!isAdmin(profile)) return { ok: false, error: { message: 'Accès refusé : paramètres réservés aux administrateurs' }, message: 'Accès refusé : paramètres réservés aux administrateurs' }
     const { error } = await supabase
       .from('parametres')
       .delete()
       .eq('cle', cle)
       .eq('valeur', valeur)
     if (!error) await get().loadParams(supabase)
-    return { error }
+    return { ok: !error, error }
   },
 
   // ══════════════════════════════════════════════════════════
