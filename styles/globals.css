@@ -836,27 +836,98 @@ ul { list-style: none; }
 .toast-hiding { animation: slideOutRight .2s ease forwards; }
 
 /* ════════════════════════════════════════════════════════════════
-   LOADER
+   ARGOS LOADER — écran de chargement isolé (.argos-loader-*)
    ════════════════════════════════════════════════════════════════ */
-.loader-overlay {
+.argos-loader {
   position: fixed; inset: 0; z-index: 9999;
-  background: var(--card);
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 16px;
+  display: grid; place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  will-change: opacity, transform;
+  animation: argosLoaderIn .24s var(--ease-out) both;
 }
-.loader-logo { width: 64px; height: 64px; animation: pulse 1.5s ease infinite; }
-.loader-brand { font-size: 18px; font-weight: 700; color: var(--text); }
-.loader-sub   { font-size: 13px; color: var(--text3); }
-.spinner {
-  width: 36px; height: 36px;
-  border: 3px solid var(--teal-l);
-  border-top-color: var(--teal);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
+.argos-loader:not(.argos-loader--fullscreen) { position: absolute; z-index: 20; }
+.argos-loader__backdrop {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 44%, var(--teal-xl) 0, transparent 46%);
 }
-.spinner-sm {
-  width: 16px; height: 16px;
-  border-width: 2px;
+.argos-loader__backdrop::after {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: .22;
+  mask-image: radial-gradient(circle at 50% 44%, #000 0, transparent 68%);
+  -webkit-mask-image: radial-gradient(circle at 50% 44%, #000 0, transparent 68%);
+}
+.argos-loader__content {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  width: min(320px, 86vw);
+  text-align: center;
+}
+.argos-loader__mark {
+  width: clamp(64px, 9vw, 96px);
+  aspect-ratio: 1;
+  animation: argosMarkIn .5s var(--ease-out) both;
+}
+.argos-loader__mark svg { width: 100%; height: 100%; display: block; }
+.argos-loader__eye {
+  stroke-dasharray: 100; stroke-dashoffset: 100;
+  animation: argosEyeDraw .9s var(--ease-out) .12s forwards;
+}
+.argos-loader__pupil {
+  transform-box: fill-box; transform-origin: center;
+  animation: argosPupil .5s var(--ease-out) .5s both;
+}
+.argos-loader__brand {
+  font-size: 15px; font-weight: 800; letter-spacing: .16em;
+  color: var(--text);
+  animation: argosFadeUp .4s var(--ease-out) .18s both;
+}
+.argos-loader__label {
+  min-height: 18px;
+  font-size: 12.5px; color: var(--text3);
+  animation: argosFadeUp .4s var(--ease-out) .24s both;
+}
+.argos-loader__progress {
+  width: 100%; height: 3px; margin-top: 8px;
+  border-radius: 999px; background: var(--border); overflow: hidden;
+}
+.argos-loader__progress span {
+  display: block; width: 100%; height: 100%;
+  border-radius: inherit; background: var(--teal);
+  transform-origin: left center; transform: scaleX(0);
+  transition: transform .35s var(--ease-out);
+}
+.argos-loader__progress.is-indeterminate span {
+  width: 38%;
+  animation: argosSweep 1.4s var(--ease-out) infinite;
+}
+.argos-loader.is-exiting { animation: argosLoaderOut .26s var(--ease-out) forwards; }
+
+@keyframes argosLoaderIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes argosLoaderOut { to { opacity: 0; transform: scale(1.015); } }
+@keyframes argosMarkIn    { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: scale(1); } }
+@keyframes argosEyeDraw   { to { stroke-dashoffset: 0; } }
+@keyframes argosPupil     { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes argosFadeUp    { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes argosSweep     { 0% { transform: translateX(-110%); } 100% { transform: translateX(280%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .argos-loader,
+  .argos-loader.is-exiting,
+  .argos-loader__mark,
+  .argos-loader__eye,
+  .argos-loader__pupil,
+  .argos-loader__brand,
+  .argos-loader__label { animation: none !important; }
+  .argos-loader__eye { stroke-dashoffset: 0; }
+  .argos-loader__progress span { transition: none; }
+  .argos-loader__progress.is-indeterminate span { width: 100%; transform: none; }
 }
 
 /* ════════════════════════════════════════════════════════════════
